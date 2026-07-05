@@ -2,6 +2,7 @@ using System.Runtime.InteropServices;
 using ExpressBus.Protocol.SourcegenTesting;
 using ExpressBus.Protocol;
 using ExpressBus.Protocol.Bus;
+using BusStatus = ExpressBus.Protocol.Bus.Status;
 
 public class MessageSerializationTests
 {
@@ -116,11 +117,11 @@ public class MessageSerializationTests
 	private static byte GetMessageTypeIdentifier<T>() where T : struct
 	{
 		var flags = System.Reflection.BindingFlags.Public
-			| System.Reflection.BindingFlags.Instance
+			| System.Reflection.BindingFlags.Static
 			| System.Reflection.BindingFlags.NonPublic;
 		var prop = typeof(T).GetProperty("MessageTypeIdentifier", flags)!;
-		var instance = System.Activator.CreateInstance(typeof(T))!;
-		return (byte)(prop.GetValue(instance) ?? throw new InvalidOperationException(
+		
+		return (byte)(prop.GetValue(null) ?? throw new InvalidOperationException(
 			$"MessageTypeIdentifier property is null on {typeof(T).FullName}"));
 	}
 
@@ -144,7 +145,7 @@ public class MessageSerializationTests
 	public void IntEnumMessage_Serialize_Deserialize_PreservesFields()
 	{
 		// Arrange
-		var original = new IntEnumMessage(Status.Failed, 123456789L);
+		var original = new IntEnumMessage(ExpressBus.Protocol.SourcegenTesting.Status.Failed, 123456789L);
 
 		// Act
 		var buffer = new byte[original.ByteSize];
@@ -412,6 +413,100 @@ public class MessageSerializationTests
 	[InlineData(typeof(BroadcastResponse), 17)] // MessageType(1) + Guid(16)
 	[InlineData(typeof(BroadcastNotification), 27)] // MessageType(1) + Guid(16) + Topic(5) + Message(5)
 	public void BusMessage_ByteSize_HasCorrectMinimum(Type type, int expectedMinimum)
+	{
+		var flags = System.Reflection.BindingFlags.Public
+			| System.Reflection.BindingFlags.Instance
+			| System.Reflection.BindingFlags.NonPublic;
+		var sizeProp = type.GetProperty("ByteSize", flags)!;
+		var instance = System.Activator.CreateInstance(type)!;
+		var actual = (int)(sizeProp.GetValue(instance) ?? throw new InvalidOperationException(
+			$"ByteSize property is null on {type.FullName}"));
+		Assert.Equal(expectedMinimum, actual);
+	}
+
+	// --- Unsubscribe message tests ---
+
+	[Fact]
+	public void UnsubscribeRequest_Serialize_Deserialize_PreservesFields()
+	{
+		// Arrange
+		var requestId = Guid.NewGuid();
+		var status = BusStatus.Success;
+		var topic = new SerializableByteMemory(4, new byte[] { 97, 98, 99, 100 });
+		var original = new UnsubscribeRequest(status, requestId, topic);
+
+		// Act
+		var buffer = new byte[original.ByteSize];
+		original.ToBytes(buffer);
+		var deserialized = UnsubscribeRequest.FromBytes(buffer);
+
+		// Assert
+		Assert.Equal(original.Status, deserialized.Status);
+		Assert.Equal(original.RequestId, deserialized.RequestId);
+		Assert.Equal(original.Topic.Count, deserialized.Topic.Count);
+		Assert.Equal(original.Topic.Data.ToArray(), deserialized.Topic.Data.ToArray());
+	}
+
+	[Fact]
+	public void UnsubscribeAllRequest_Serialize_Deserialize_PreservesFields()
+	{
+		// Arrange
+		var requestId = Guid.NewGuid();
+		var status = BusStatus.Error;
+		var original = new UnsubscribeAllRequest(status, requestId);
+
+		// Act
+		var buffer = new byte[original.ByteSize];
+		original.ToBytes(buffer);
+		var deserialized = UnsubscribeAllRequest.FromBytes(buffer);
+
+		// Assert
+		Assert.Equal(original.Status, deserialized.Status);
+		Assert.Equal(original.RequestId, deserialized.RequestId);
+	}
+
+	[Fact]
+	public void UnsubscribeResponse_Serialize_Deserialize_PreservesFields()
+	{
+		// Arrange
+		var requestId = Guid.NewGuid();
+		var status = BusStatus.Success;
+		var original = new UnsubscribeResponse(status, requestId);
+
+		// Act
+		var buffer = new byte[original.ByteSize];
+		original.ToBytes(buffer);
+		var deserialized = UnsubscribeResponse.FromBytes(buffer);
+
+		// Assert
+		Assert.Equal(original.Status, deserialized.Status);
+		Assert.Equal(original.RequestId, deserialized.RequestId);
+	}
+
+	[Fact]
+	public void UnsubscribeAllResponse_Serialize_Deserialize_PreservesFields()
+	{
+		// Arrange
+		var requestId = Guid.NewGuid();
+		var status = BusStatus.Error;
+		var original = new UnsubscribeAllResponse(status, requestId);
+
+		// Act
+		var buffer = new byte[original.ByteSize];
+		original.ToBytes(buffer);
+		var deserialized = UnsubscribeAllResponse.FromBytes(buffer);
+
+		// Assert
+		Assert.Equal(original.Status, deserialized.Status);
+		Assert.Equal(original.RequestId, deserialized.RequestId);
+	}
+
+	[Theory]
+	[InlineData(typeof(UnsubscribeRequest), 23)] // MessageType(1) + Status(1) + Guid(16) + Topic(5 for 0 items)
+	[InlineData(typeof(UnsubscribeAllRequest), 18)] // MessageType(1) + Status(1) + Guid(16)
+	[InlineData(typeof(UnsubscribeResponse), 18)] // MessageType(1) + Status(1) + Guid(16)
+	[InlineData(typeof(UnsubscribeAllResponse), 18)] // MessageType(1) + Status(1) + Guid(16)
+	public void UnsubscribeMessage_ByteSize_HasCorrectMinimum(Type type, int expectedMinimum)
 	{
 		var flags = System.Reflection.BindingFlags.Public
 			| System.Reflection.BindingFlags.Instance

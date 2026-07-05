@@ -63,8 +63,9 @@ internal static class MessageGeneration
 			sb.AppendLine($"\tpublic partial struct {typeName} : IByteSerializable<{typeName}>, IMessage, IMessageSize");
 			sb.AppendLine("\t{");
 
-			// MessageTypeIdentifier — instance property (matches IMessage).
-			sb.AppendLine($"\tpublic byte MessageTypeIdentifier => {identifier};");
+			// MessageTypeIdentifier — static for type-level dispatch + explicit interface for IMessage compliance.
+			sb.AppendLine($"\tpublic static byte MessageTypeIdentifier => {identifier};");
+			sb.AppendLine($"\tbyte IMessage.MessageTypeIdentifier => {identifier};");
 
 			// ByteSize — 1 byte MessageTypeIdentifier, no additional fields.
 			sb.AppendLine("\tpublic int ByteSize => 1;");
@@ -82,8 +83,9 @@ internal static class MessageGeneration
 			sb.AppendLine($"\tpublic partial struct {typeName} : IByteSerializable<{typeName}>, IMessage, IMessageSize");
 			sb.AppendLine("\t{");
 
-			// MessageTypeIdentifier — instance property (matches IMessage).
-			sb.AppendLine($"\tpublic byte MessageTypeIdentifier => {identifier};");
+			// MessageTypeIdentifier — static for type-level dispatch + explicit interface for IMessage compliance.
+			sb.AppendLine($"\tpublic static byte MessageTypeIdentifier => {identifier};");
+			sb.AppendLine($"\tbyte IMessage.MessageTypeIdentifier => {identifier};");
 
 			sb.AppendLine("\t}");
 		}

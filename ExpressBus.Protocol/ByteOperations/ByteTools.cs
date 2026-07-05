@@ -10,7 +10,7 @@ public static class ByteTools
 		return Unsafe.SizeOf<T>();
 	}
 
-	
+
 	public static void EnsureLength(ReadOnlySpan<byte> bytes, int requiredLength)
 	{
 		var length = bytes.Length;
@@ -54,5 +54,47 @@ public static class ByteTools
 		return buffer.Slice(0, size);
 	}
 
-	
+	// --- Async Stream Helpers ---
+
+	/// <summary>
+	/// Reads exactly one byte from the stream.
+	/// </summary>
+	public static async Task<byte> ReadSingleByteAsync(this Stream stream)
+	{
+		var buffer = new byte[1];
+		var bytesRead = await stream.ReadAsync(buffer, 0, 1).ConfigureAwait(false);
+		if (bytesRead == 0)
+			throw new InvalidDataException("Unexpected end of stream while reading single byte.");
+		return buffer[0];
+	}
+
+	/// <summary>
+	/// Reads exactly the specified number of bytes into the provided buffer.
+	/// </summary>
+	public static async Task ReadExactlyAsync(this Stream stream, byte[] buffer)
+	{
+		int totalRead = 0;
+		while (totalRead < buffer.Length)
+		{
+			var bytesRead = await stream.ReadAsync(buffer.AsMemory(totalRead)).ConfigureAwait(false);
+			if (bytesRead == 0)
+				throw new InvalidDataException("Unexpected end of stream during read.");
+			totalRead += bytesRead;
+		}
+	}
+
+	/// <summary>
+	/// Reads exactly the specified number of bytes into the provided memory.
+	/// </summary>
+	public static async Task ReadExactlyAsync(this Stream stream, Memory<byte> buffer)
+	{
+		int totalRead = 0;
+		while (totalRead < buffer.Length)
+		{
+			var bytesRead = await stream.ReadAsync(buffer.Slice(totalRead)).ConfigureAwait(false);
+			if (bytesRead == 0)
+				throw new InvalidDataException("Unexpected end of stream during read.");
+			totalRead += bytesRead;
+		}
+	}
 }
