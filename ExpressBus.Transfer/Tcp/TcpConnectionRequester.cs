@@ -20,11 +20,11 @@ public sealed class TcpConnectionRequester : IConnectionRequester
 	}
 
 	/// <inheritdoc />
-	public IConnection Connect()
+	public async Task<IConnection> ConnectAsync()
 	{
 		var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 		var connection = new TcpConnection(socket);
-		connection.ConnectAsync(_address).GetAwaiter().GetResult();
+		await connection.ConnectAsync(_address);
 		return connection;
 	}
 }

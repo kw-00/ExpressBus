@@ -7,34 +7,39 @@ namespace ExpressBus.Transfer;
 public abstract class ServerBase : IServer
 {
 	private CancellationTokenSource? _stoppingToken;
+	private Task? _listenTask;
 
 	/// <inheritdoc />
 	public async Task ListenAsync()
 	{
 		_stoppingToken = new CancellationTokenSource();
 		var token = _stoppingToken.Token;
-		await ListenAsync(connection =>
-		{
-			_ = Task.Run(() => HandleConnectionAsync(connection), token);
-		}, token);
+		_listenTask = ListenAsync(HandleConnectionAsync, token);
+		await _listenTask;
 	}
 
 	/// <inheritdoc />
-	public virtual Task StopAsync()
+	public async Task StopAsync()
 	{
-		_stoppingToken?.Cancel();
-		_stoppingToken?.Dispose();
+		var cts = _stoppingToken;
 		_stoppingToken = null;
-		return Task.CompletedTask;
+		cts?.Cancel();
+		cts?.Dispose();
+
+		var task = _listenTask;
+		_listenTask = null;
+		if (task is not null)
+			await task.ConfigureAwait(false);
 	}
 
 	/// <summary>
 	/// Called by <see cref="ListenAsync"/> to accept incoming connections.
 	/// Each accepted connection is passed to <paramref name="connectionHandler"/>.
 	/// </summary>
-	/// <param name="connectionHandler">Callback invoked for each accepted connection.</param>
+	/// <param name="connectionHandler">Callback invoked for each accepted connection. Returns a task representing the connection lifetime.</param>
 	/// <param name="cancellationToken">Token that signals the server should stop accepting.</param>
-	protected abstract Task ListenAsync(Action<IConnection> connectionHandler, CancellationToken cancellationToken);
+	/// <returns>A task representing the lifetime of the accept loop.</returns>
+	protected abstract Task ListenAsync(Func<IConnection, Task> connectionHandler, CancellationToken cancellationToken);
 
 	/// <summary>
 	/// Called for each accepted connection. Implement in a derived class to handle connection-specific logic.

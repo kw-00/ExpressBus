@@ -40,7 +40,13 @@ public sealed class TcpConnection : IConnection
 			EnsureNotClosed();
 		}
 
-		await _socket.SendAsync(data, SocketFlags.None, CancellationToken.None);
+		int offset = 0;
+		while (offset < data.Length)
+		{
+			int sent = await _socket.SendAsync(
+				data.Slice(offset), SocketFlags.None, CancellationToken.None);
+			offset += sent;
+		}
 	}
 
 	/// <inheritdoc />
@@ -77,13 +83,16 @@ public sealed class TcpConnection : IConnection
 
 			_closed = true;
 
-			try
+			if (mode == CloseMode.Shutdown)
 			{
-				_socket.Shutdown(SocketShutdown.Both);
-			}
-			catch
-			{
-				// Already closed or disconnected — ignore
+				try
+				{
+					_socket.Shutdown(SocketShutdown.Both);
+				}
+				catch
+				{
+					// Already closed or disconnected — ignore
+				}
 			}
 
 			try
@@ -105,13 +114,5 @@ public sealed class TcpConnection : IConnection
 			throw new IOException("Connection is closed.");
 	}
 
-	private static IPAddress GetIPAddress(string host)
-	{
-		if (IPAddress.TryParse(host, out var ip))
-			return ip;
-
-		var addresses = System.Net.Dns.GetHostAddresses(host);
-		return addresses.FirstOrDefault(a => a.AddressFamily == AddressFamily.InterNetwork)
-			?? addresses.First();
-	}
+	private static IPAddress GetIPAddress(string host) => SocketEndpoints.Resolve(host);
 }

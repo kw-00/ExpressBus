@@ -22,7 +22,7 @@ public abstract class TcpServer : ServerBase
 	}
 
 	/// <inheritdoc />
-	protected override async Task ListenAsync(Action<IConnection> connectionHandler, CancellationToken cancellationToken)
+	protected override async Task ListenAsync(Func<IConnection, Task> connectionHandler, CancellationToken cancellationToken)
 	{
 		_listeningSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 		_listeningSocket.Bind(new IPEndPoint(GetIPAddress(_address.Host), _address.Port));
@@ -34,16 +34,14 @@ public abstract class TcpServer : ServerBase
 			{
 				var accepted = await _listeningSocket.AcceptAsync();
 				accepted.NoDelay = true;
-				connectionHandler(new TcpConnection(accepted));
+				await connectionHandler(new TcpConnection(accepted));
 			}
 			catch (ObjectDisposedException) when (cancellationToken.IsCancellationRequested)
 			{
-				// Expected during shutdown
 				break;
 			}
 			catch (SocketException) when (cancellationToken.IsCancellationRequested)
 			{
-				// Expected during shutdown
 				break;
 			}
 		}
@@ -58,13 +56,5 @@ public abstract class TcpServer : ServerBase
 		_listeningSocket = null;
 	}
 
-	private static IPAddress GetIPAddress(string host)
-	{
-		if (IPAddress.TryParse(host, out var ip))
-			return ip;
-
-		var addresses = System.Net.Dns.GetHostAddresses(host);
-		return addresses.FirstOrDefault(a => a.AddressFamily == AddressFamily.InterNetwork)
-			?? addresses.First();
-	}
+	private static IPAddress GetIPAddress(string host) => SocketEndpoints.Resolve(host);
 }
