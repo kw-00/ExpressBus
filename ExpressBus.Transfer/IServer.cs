@@ -13,5 +13,5 @@ public interface IServer
 	/// <summary>
 	/// Stops the server and stops accepting new connections.
 	/// </summary>
-	Task StopAsync();
+	void StopAsync();
 }

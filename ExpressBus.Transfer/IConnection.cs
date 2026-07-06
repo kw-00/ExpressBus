@@ -2,7 +2,6 @@ namespace ExpressBus.Transfer;
 
 /// <summary>
 /// Represents a persistent connection to a remote endpoint.
-/// Connections are created by an <see cref="IConnectionRequester"/> and are already connected.
 /// </summary>
 public interface IConnection
 {

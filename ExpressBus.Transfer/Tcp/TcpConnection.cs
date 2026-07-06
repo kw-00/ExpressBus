@@ -1,4 +1,3 @@
-using System.Net;
 using System.Net.Sockets;
 
 namespace ExpressBus.Transfer.Tcp;
@@ -15,21 +14,48 @@ public sealed class TcpConnection : IConnection
 	private bool _closed;
 
 	/// <summary>
-	/// Creates a <see cref="TcpConnection"/> wrapping an unconnected socket.
+	/// Creates a <see cref="TcpConnection"/> wrapping a pre-connected socket (incoming connection).
 	/// </summary>
-	/// <param name="socket">An unconnected socket.</param>
+	/// <param name="socket">A connected TCP socket, returned from <see cref="Socket.AcceptAsync"/>.</param>
 	public TcpConnection(Socket socket)
 	{
-		_socket = socket ?? throw new ArgumentNullException(nameof(socket));
+		ValidateTcpSocket(socket, expectConnected: true);
+		_socket = socket;
 	}
 
 	/// <summary>
-	/// Establishes the connection on this socket.
+	/// Creates a <see cref="TcpConnection"/> and connects an unconnected socket to the target address (outgoing connection).
 	/// </summary>
-	internal async Task ConnectAsync(Address address)
+	/// <param name="socket">An unconnected TCP socket.</param>
+	/// <param name="address">The remote address to connect to.</param>
+	public TcpConnection(Socket socket, Address address)
 	{
-		var endpoint = new IPEndPoint(GetIPAddress(address.Host), address.Port);
-		await _socket.ConnectAsync(endpoint);
+		ValidateTcpSocket(socket, expectConnected: false);
+		_socket = socket;
+		var endpoint = new System.Net.IPEndPoint(SocketEndpoints.Resolve(address.Host), address.Port);
+		_socket.Connect(endpoint);
+	}
+
+	private static void ValidateTcpSocket(Socket socket, bool expectConnected)
+	{
+		if (socket == null)
+			throw new ArgumentNullException(nameof(socket));
+
+		if (socket.AddressFamily != AddressFamily.InterNetwork)
+			throw new ArgumentException("Socket must use IPv4 address family.", nameof(socket));
+
+		if (socket.SocketType != SocketType.Stream)
+			throw new ArgumentException("Socket must be a stream (TCP) socket.", nameof(socket));
+
+		if (socket.ProtocolType != ProtocolType.Tcp)
+			throw new ArgumentException("Socket must use the TCP protocol.", nameof(socket));
+
+		var isConnected = socket.Connected;
+		if (expectConnected && !isConnected)
+			throw new ArgumentException("Socket must be pre-connected (use the two-argument constructor for outgoing connections).", nameof(socket));
+
+		if (!expectConnected && isConnected)
+			throw new ArgumentException("Socket must be unconnected (use the single-argument constructor for incoming connections).", nameof(socket));
 	}
 
 	/// <inheritdoc />
@@ -40,13 +66,7 @@ public sealed class TcpConnection : IConnection
 			EnsureNotClosed();
 		}
 
-		int offset = 0;
-		while (offset < data.Length)
-		{
-			int sent = await _socket.SendAsync(
-				data.Slice(offset), SocketFlags.None, CancellationToken.None);
-			offset += sent;
-		}
+		await _socket.SendAsync(data, SocketFlags.None, CancellationToken.None);
 	}
 
 	/// <inheritdoc />
@@ -114,5 +134,5 @@ public sealed class TcpConnection : IConnection
 			throw new IOException("Connection is closed.");
 	}
 
-	private static IPAddress GetIPAddress(string host) => SocketEndpoints.Resolve(host);
+	private static System.Net.IPAddress Resolve(string host) => SocketEndpoints.Resolve(host);
 }

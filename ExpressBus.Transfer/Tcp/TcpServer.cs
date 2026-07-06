@@ -11,6 +11,7 @@ public abstract class TcpServer : ServerBase
 {
 	private readonly Address _address;
 	private Socket? _listeningSocket;
+	private CancellationTokenSource? _stoppingToken;
 
 	/// <summary>
 	/// Creates a new <see cref="TcpServer"/> bound to the given <paramref name="address"/>.
@@ -22,13 +23,27 @@ public abstract class TcpServer : ServerBase
 	}
 
 	/// <inheritdoc />
-	protected override async Task ListenAsync(Func<IConnection, Task> connectionHandler, CancellationToken cancellationToken)
+	public override void StopAsync()
 	{
+		CloseListeningSocket();
+
+		var cts = _stoppingToken;
+		_stoppingToken = null;
+		cts?.Cancel();
+		cts?.Dispose();
+	}
+
+	/// <inheritdoc />
+	protected override async Task RunAcceptLoop(Func<IConnection, Task> connectionHandler)
+	{
+		_stoppingToken = new CancellationTokenSource();
+		var token = _stoppingToken.Token;
+
 		_listeningSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-		_listeningSocket.Bind(new IPEndPoint(GetIPAddress(_address.Host), _address.Port));
+		_listeningSocket.Bind(new IPEndPoint(SocketEndpoints.Resolve(_address.Host), _address.Port));
 		_listeningSocket.Listen();
 
-		while (!cancellationToken.IsCancellationRequested)
+		while (!token.IsCancellationRequested)
 		{
 			try
 			{
@@ -36,11 +51,11 @@ public abstract class TcpServer : ServerBase
 				accepted.NoDelay = true;
 				await connectionHandler(new TcpConnection(accepted));
 			}
-			catch (ObjectDisposedException) when (cancellationToken.IsCancellationRequested)
+			catch (ObjectDisposedException) when (token.IsCancellationRequested)
 			{
 				break;
 			}
-			catch (SocketException) when (cancellationToken.IsCancellationRequested)
+			catch (SocketException) when (token.IsCancellationRequested)
 			{
 				break;
 			}
@@ -55,6 +70,4 @@ public abstract class TcpServer : ServerBase
 		_listeningSocket?.Close();
 		_listeningSocket = null;
 	}
-
-	private static IPAddress GetIPAddress(string host) => SocketEndpoints.Resolve(host);
 }
