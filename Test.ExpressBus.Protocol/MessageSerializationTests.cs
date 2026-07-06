@@ -1,7 +1,7 @@
-using System.Runtime.InteropServices;
-using ExpressBus.Protocol.SourcegenTesting;
+﻿using System.Runtime.InteropServices;
 using ExpressBus.Protocol;
 using ExpressBus.Protocol.Bus;
+using ExpressBus.Protocol.SourcegenTesting;
 using BusStatus = ExpressBus.Protocol.Bus.Status;
 
 public class MessageSerializationTests
@@ -339,7 +339,8 @@ public class MessageSerializationTests
 	{
 		// Arrange
 		var requestId = Guid.NewGuid();
-		var original = new SubscribeResponse(requestId);
+		var status = BusStatus.Success;
+		var original = new SubscribeResponse(status, requestId);
 
 		// Act
 		var buffer = new byte[original.ByteSize];
@@ -347,6 +348,7 @@ public class MessageSerializationTests
 		var deserialized = SubscribeResponse.FromBytes(buffer);
 
 		// Assert
+		Assert.Equal(original.Status, deserialized.Status);
 		Assert.Equal(original.RequestId, deserialized.RequestId);
 	}
 
@@ -375,7 +377,8 @@ public class MessageSerializationTests
 	{
 		// Arrange
 		var requestId = Guid.NewGuid();
-		var original = new BroadcastResponse(requestId);
+		var status = BusStatus.Success;
+		var original = new BroadcastResponse(status, requestId);
 
 		// Act
 		var buffer = new byte[original.ByteSize];
@@ -383,35 +386,34 @@ public class MessageSerializationTests
 		var deserialized = BroadcastResponse.FromBytes(buffer);
 
 		// Assert
+		Assert.Equal(original.Status, deserialized.Status);
 		Assert.Equal(original.RequestId, deserialized.RequestId);
 	}
 
 	[Fact]
-	public void BroadcastNotification_Serialize_Deserialize_PreservesFields()
+	public void EventNotification_Serialize_Deserialize_PreservesFields()
 	{
 		// Arrange
-		var requestId = Guid.NewGuid();
 		var topic = new SerializableByteMemory(6, new byte[] { 1, 2, 3, 4, 5, 6 });
 		var message = new SerializableByteMemory(2, new byte[] { 7, 8 });
-		var original = new BroadcastNotification(requestId, topic, message);
+		var original = new EventNotification(topic, message);
 
 		// Act
 		var buffer = new byte[original.ByteSize];
 		original.ToBytes(buffer);
-		var deserialized = BroadcastNotification.FromBytes(buffer);
+		var deserialized = EventNotification.FromBytes(buffer);
 
 		// Assert
-		Assert.Equal(original.RequestId, deserialized.RequestId);
 		Assert.Equal(original.Topic.Count, deserialized.Topic.Count);
 		Assert.Equal(original.Message.Count, deserialized.Message.Count);
 	}
 
 	[Theory]
 	[InlineData(typeof(SubscribeRequest), 22)] // MessageType(1) + Guid(16) + Topic(5 for 0 items)
-	[InlineData(typeof(SubscribeResponse), 17)] // MessageType(1) + Guid(16)
+	[InlineData(typeof(SubscribeResponse), 18)] // MessageType(1) + Status(1) + Guid(16)
 	[InlineData(typeof(BroadcastRequest), 27)] // MessageType(1) + Guid(16) + Topic(5) + Message(5)
-	[InlineData(typeof(BroadcastResponse), 17)] // MessageType(1) + Guid(16)
-	[InlineData(typeof(BroadcastNotification), 27)] // MessageType(1) + Guid(16) + Topic(5) + Message(5)
+	[InlineData(typeof(BroadcastResponse), 18)] // MessageType(1) + Status(1) + Guid(16)
+	[InlineData(typeof(EventNotification), 11)] // MessageType(1) + Topic(5) + Message(5)
 	public void BusMessage_ByteSize_HasCorrectMinimum(Type type, int expectedMinimum)
 	{
 		var flags = System.Reflection.BindingFlags.Public

@@ -30,13 +30,13 @@ public class RequestHandlerBaseTests
 		protected override BroadcastResponse HandleBroadcastRequest(BroadcastRequest request)
 		{
 			LastHandled = "Broadcast";
-			return new BroadcastResponse(request.RequestId);
+			return new BroadcastResponse(Status.Success, request.RequestId);
 		}
 
 		protected override SubscribeResponse HandleSubscribeRequest(SubscribeRequest request)
 		{
 			LastHandled = "Subscribe";
-			return new SubscribeResponse(request.RequestId);
+			return new SubscribeResponse(Status.Success, request.RequestId);
 		}
 
 		protected override UnsubscribeResponse HandleUnsubscribeRequest(UnsubscribeRequest request)

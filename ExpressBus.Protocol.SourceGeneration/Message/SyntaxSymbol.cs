@@ -1,7 +1,7 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
-namespace ExpressBus.Protocol.SourceGeneration.Protocol;
+namespace ExpressBus.Protocol.SourceGeneration.Message;
 
 /// <summary>
 /// Holds both the syntax node and the compiled symbol for a message struct.

@@ -2,7 +2,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
-namespace ExpressBus.Protocol.SourceGeneration.Protocol;
+namespace ExpressBus.Protocol.SourceGeneration.Message;
 
 /// <summary>
 /// Roslyn incremental source generator for protocol message types.
@@ -33,7 +33,7 @@ namespace ExpressBus.Protocol.SourceGeneration.Protocol;
 /// </para>
 /// </summary>
 [Generator]
-public sealed class ProtocolGenerator : IIncrementalGenerator
+public sealed class MessageGenerator : IIncrementalGenerator
 {
 	private const string CollectMessageTypesTrackingName =
 		"ExpressBus.Protocol.SourceGeneration.CollectMessageTypes";

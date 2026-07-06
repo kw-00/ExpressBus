@@ -13,7 +13,7 @@ namespace ExpressBus.Protocol;
 public interface INotificationSender
 {
     /// <summary>
-    /// Sends a broadcast notification to all subscribers of a topic.
+    /// Sends an event notification to all subscribers of a topic.
     /// </summary>
-    Task SendBroadcastNotificationAsync(BroadcastNotification notification);
+    Task SendEventNotificationAsync(EventNotification notification);
 }

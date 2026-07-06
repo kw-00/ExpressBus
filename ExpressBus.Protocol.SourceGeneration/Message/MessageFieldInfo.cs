@@ -1,7 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
-namespace ExpressBus.Protocol.SourceGeneration.Protocol;
+namespace ExpressBus.Protocol.SourceGeneration.Message;
 
 /// <summary>
 /// Represents a parsed <c>[MessageField]</c> attribute value.

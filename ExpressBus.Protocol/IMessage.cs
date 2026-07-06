@@ -17,5 +17,5 @@ public interface IMessage
 	/// <summary>
 	/// Unique byte tag identifying this message type on the wire.
 	/// </summary>
-	byte MessageTypeIdentifier { get; }
+	static byte MessageTypeIdentifier { get; }
 }

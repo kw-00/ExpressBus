@@ -1,7 +1,7 @@
 using Microsoft.CodeAnalysis;
 using System.Text;
 
-namespace ExpressBus.Protocol.SourceGeneration.Protocol;
+namespace ExpressBus.Protocol.SourceGeneration.Message;
 
 /// <summary>
 /// Generates binary serialization members for message structs annotated with <c>[GenerateSerialization]</c>.

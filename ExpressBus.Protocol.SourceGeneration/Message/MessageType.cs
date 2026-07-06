@@ -1,4 +1,4 @@
-namespace ExpressBus.Protocol.SourceGeneration.Protocol;
+namespace ExpressBus.Protocol.SourceGeneration.Message;
 
 /// <summary>
 /// Mirror of <see cref="global::ExpressBus.Protocol.MessageType"/> used internally

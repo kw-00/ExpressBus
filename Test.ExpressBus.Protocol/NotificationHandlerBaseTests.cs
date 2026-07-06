@@ -22,12 +22,12 @@ public class NotificationHandlerBaseTests
 	/// </summary>
 	private class TestNotificationHandler : NotificationHandlerBase
 	{
-		public BroadcastNotification LastNotification { get; private set; }
+		public EventNotification LastNotification { get; private set; }
 
 		protected override IMemoryOwner<byte> CreateBuffer(int size) =>
 			new ExactMemoryOwner(new byte[size]);
 
-		protected override Task HandleBroadcastNotificationAsync(BroadcastNotification notification)
+		protected override Task HandleEventNotificationAsync(EventNotification notification)
 		{
 			LastNotification = notification;
 			return Task.CompletedTask;
@@ -49,19 +49,18 @@ public class NotificationHandlerBaseTests
 	{
 		// Arrange
 		var handler = new TestNotificationHandler();
-		var requestId = Guid.NewGuid();
 		var topic = new SerializableByteMemory(6, new byte[] { 1, 2, 3, 4, 5, 6 });
 		var message = new SerializableByteMemory(2, new byte[] { 7, 8 });
-		var notification = new BroadcastNotification(requestId, topic, message);
+		var notification = new EventNotification(topic, message);
 		var buffer = new byte[notification.ByteSize];
 		notification.ToBytes(buffer);
-		var stream = BuildNotificationStream(BroadcastNotification.MessageTypeIdentifier, buffer);
+		var stream = BuildNotificationStream(EventNotification.MessageTypeIdentifier, buffer);
 
 		// Act
 		await handler.HandleNotificationAsync(stream);
 
 		// Assert
-		Assert.Equal(notification.RequestId, handler.LastNotification.RequestId);
+		Assert.Equal(notification.Topic.Count, handler.LastNotification.Topic.Count);
 	}
 
 	[Fact]
@@ -95,9 +94,7 @@ public class NotificationHandlerBaseTests
 	{
 		// Arrange
 		var handler = new TestNotificationHandler();
-		var requestId = Guid.NewGuid();
-		var notification = new BroadcastNotification(
-			requestId,
+		var notification = new EventNotification(
 			new SerializableByteMemory(3, new byte[] { 1, 2, 3 }),
 			new SerializableByteMemory(2, new byte[] { 4, 5 }));
 		var buffer = new byte[notification.ByteSize];
@@ -108,7 +105,7 @@ public class NotificationHandlerBaseTests
 		Array.Copy(buffer, halfBuffer, halfLen);
 		var sizeBytes = BitConverter.GetBytes(buffer.Length);
 		var data = new byte[1 + sizeBytes.Length + halfLen];
-		data[0] = BroadcastNotification.MessageTypeIdentifier;
+		data[0] = EventNotification.MessageTypeIdentifier;
 		sizeBytes.CopyTo(data, 1);
 		halfBuffer.CopyTo(data, 1 + sizeBytes.Length);
 		var stream = new MemoryStream(data);

@@ -1,6 +1,6 @@
 using Microsoft.CodeAnalysis;
 
-namespace ExpressBus.Protocol.SourceGeneration.Protocol;
+namespace ExpressBus.Protocol.SourceGeneration.Message;
 
 /// <summary>
 /// Diagnostic descriptors for the protocol source generator.

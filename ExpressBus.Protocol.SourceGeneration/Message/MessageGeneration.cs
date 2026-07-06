@@ -1,7 +1,7 @@
 using Microsoft.CodeAnalysis;
 using System.Text;
 
-namespace ExpressBus.Protocol.SourceGeneration.Protocol;
+namespace ExpressBus.Protocol.SourceGeneration.Message;
 
 /// <summary>
 /// Generates a partial struct for types annotated with <c>[Message]</c>.
@@ -63,9 +63,8 @@ internal static class MessageGeneration
 			sb.AppendLine($"\tpublic partial struct {typeName} : IByteSerializable<{typeName}>, IMessage, IMessageSize");
 			sb.AppendLine("\t{");
 
-			// MessageTypeIdentifier — static for type-level dispatch + explicit interface for IMessage compliance.
+			// MessageTypeIdentifier — static for type-level dispatch.
 			sb.AppendLine($"\tpublic static byte MessageTypeIdentifier => {identifier};");
-			sb.AppendLine($"\tbyte IMessage.MessageTypeIdentifier => {identifier};");
 
 			// ByteSize — 1 byte MessageTypeIdentifier, no additional fields.
 			sb.AppendLine("\tpublic int ByteSize => 1;");
@@ -83,9 +82,8 @@ internal static class MessageGeneration
 			sb.AppendLine($"\tpublic partial struct {typeName} : IByteSerializable<{typeName}>, IMessage, IMessageSize");
 			sb.AppendLine("\t{");
 
-			// MessageTypeIdentifier — static for type-level dispatch + explicit interface for IMessage compliance.
+			// MessageTypeIdentifier — static for type-level dispatch.
 			sb.AppendLine($"\tpublic static byte MessageTypeIdentifier => {identifier};");
-			sb.AppendLine($"\tbyte IMessage.MessageTypeIdentifier => {identifier};");
 
 			sb.AppendLine("\t}");
 		}

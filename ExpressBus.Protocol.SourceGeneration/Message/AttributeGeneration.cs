@@ -1,6 +1,6 @@
 using System.Text;
 
-namespace ExpressBus.Protocol.SourceGeneration.Protocol;
+namespace ExpressBus.Protocol.SourceGeneration.Message;
 
 /// <summary>
 /// Generates the source text for all three protocol attribute classes.

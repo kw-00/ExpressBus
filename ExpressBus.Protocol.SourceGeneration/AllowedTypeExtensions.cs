@@ -1,5 +1,4 @@
-using System;
-
+﻿
 namespace ExpressBus.Protocol.SourceGeneration;
 
 /// <summary>
