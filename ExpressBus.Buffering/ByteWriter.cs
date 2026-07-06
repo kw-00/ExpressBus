@@ -1,6 +1,6 @@
 using System.Buffers.Binary;
 
-namespace ExpressBus.Protocol.ByteOperations;
+namespace ExpressBus.Buffering;
 
 public ref struct ByteWriter
 {

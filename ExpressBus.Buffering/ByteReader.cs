@@ -1,6 +1,6 @@
 using System.Buffers.Binary;
 
-namespace ExpressBus.Protocol.ByteOperations;
+namespace ExpressBus.Buffering;
 
 public ref struct ByteReader
 {
@@ -81,6 +81,6 @@ public ref struct ByteReader
     {
         var bytes = Bytes.Slice(_index, 16);
         _index += 16;
-        return new Guid(bytes); 
+        return new Guid(bytes);
     }
 }

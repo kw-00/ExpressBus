@@ -44,7 +44,7 @@ public sealed class SerializableMemoryGenerator : IIncrementalGenerator
 		sb.AppendLine("global using global::System;");
 		sb.AppendLine("global using global::System.Buffers;");
 		sb.AppendLine("global using global::ExpressBus.Protocol;");
-		sb.AppendLine("global using global::ExpressBus.Protocol.ByteOperations;");
+		sb.AppendLine("global using global::ExpressBus.Buffering;");
 		sb.AppendLine();
 		sb.AppendLine("namespace ExpressBus.Protocol;");
 		sb.AppendLine();

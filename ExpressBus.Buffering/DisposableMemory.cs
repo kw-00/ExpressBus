@@ -1,6 +1,6 @@
 using System.Buffers;
 
-namespace ExpressBus.Protocol;
+namespace ExpressBus.Buffering;
 
 /// <summary>
 /// Wraps an <see cref="IMemoryOwner{T}"/> and exposes only a bounded, read-only view of its memory.

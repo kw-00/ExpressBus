@@ -26,7 +26,7 @@ internal static class SerializationGeneration
 		"global using global::System;",
 		"global using global::System.Buffers;",
 		"global using global::ExpressBus.Protocol;",
-		"global using global::ExpressBus.Protocol.ByteOperations;",
+		"global using global::ExpressBus.Buffering;",
 	];
 
 	/// <summary>

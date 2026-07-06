@@ -433,9 +433,8 @@ public class MessageSerializationTests
 	{
 		// Arrange
 		var requestId = Guid.NewGuid();
-		var status = BusStatus.Success;
 		var topic = new SerializableByteMemory(4, new byte[] { 97, 98, 99, 100 });
-		var original = new UnsubscribeRequest(status, requestId, topic);
+		var original = new UnsubscribeRequest(requestId, topic);
 
 		// Act
 		var buffer = new byte[original.ByteSize];
@@ -443,7 +442,6 @@ public class MessageSerializationTests
 		var deserialized = UnsubscribeRequest.FromBytes(buffer);
 
 		// Assert
-		Assert.Equal(original.Status, deserialized.Status);
 		Assert.Equal(original.RequestId, deserialized.RequestId);
 		Assert.Equal(original.Topic.Count, deserialized.Topic.Count);
 		Assert.Equal(original.Topic.Data.ToArray(), deserialized.Topic.Data.ToArray());
@@ -454,8 +452,7 @@ public class MessageSerializationTests
 	{
 		// Arrange
 		var requestId = Guid.NewGuid();
-		var status = BusStatus.Error;
-		var original = new UnsubscribeAllRequest(status, requestId);
+		var original = new UnsubscribeAllRequest(requestId);
 
 		// Act
 		var buffer = new byte[original.ByteSize];
@@ -463,7 +460,6 @@ public class MessageSerializationTests
 		var deserialized = UnsubscribeAllRequest.FromBytes(buffer);
 
 		// Assert
-		Assert.Equal(original.Status, deserialized.Status);
 		Assert.Equal(original.RequestId, deserialized.RequestId);
 	}
 
@@ -504,8 +500,8 @@ public class MessageSerializationTests
 	}
 
 	[Theory]
-	[InlineData(typeof(UnsubscribeRequest), 23)] // MessageType(1) + Status(1) + Guid(16) + Topic(5 for 0 items)
-	[InlineData(typeof(UnsubscribeAllRequest), 18)] // MessageType(1) + Status(1) + Guid(16)
+	[InlineData(typeof(UnsubscribeRequest), 22)] // MessageType(1) + Guid(16) + Topic(5 for 0 items)
+	[InlineData(typeof(UnsubscribeAllRequest), 17)] // MessageType(1) + Guid(16)
 	[InlineData(typeof(UnsubscribeResponse), 18)] // MessageType(1) + Status(1) + Guid(16)
 	[InlineData(typeof(UnsubscribeAllResponse), 18)] // MessageType(1) + Status(1) + Guid(16)
 	public void UnsubscribeMessage_ByteSize_HasCorrectMinimum(Type type, int expectedMinimum)

@@ -1,6 +1,6 @@
 using System.Runtime.CompilerServices;
 
-namespace ExpressBus.Protocol.ByteOperations;
+namespace ExpressBus.Buffering;
 
 public static class ByteTools
 {

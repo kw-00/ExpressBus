@@ -42,13 +42,13 @@ public class RequestHandlerBaseTests
 		protected override UnsubscribeResponse HandleUnsubscribeRequest(UnsubscribeRequest request)
 		{
 			LastHandled = "Unsubscribe";
-			return new UnsubscribeResponse(request.Status, request.RequestId);
+			return new UnsubscribeResponse(Status.Success, request.RequestId);
 		}
 
 		protected override UnsubscribeAllResponse HandleUnsubscribeAllRequest(UnsubscribeAllRequest request)
 		{
 			LastHandled = "UnsubscribeAll";
-			return new UnsubscribeAllResponse(request.Status, request.RequestId);
+			return new UnsubscribeAllResponse(Status.Success, request.RequestId);
 		}
 	}
 
@@ -108,7 +108,7 @@ public class RequestHandlerBaseTests
 		var handler = new TestRequestHandler();
 		var requestId = Guid.NewGuid();
 		var topic = new SerializableByteMemory(4, new byte[] { 97, 98, 99, 100 });
-		var request = new UnsubscribeRequest(Status.Success, requestId, topic);
+		var request = new UnsubscribeRequest(requestId, topic);
 		var buffer = new byte[request.ByteSize];
 		request.ToBytes(buffer);
 		var stream = BuildRequestStream(UnsubscribeRequest.MessageTypeIdentifier, buffer);
@@ -126,7 +126,7 @@ public class RequestHandlerBaseTests
 		// Arrange
 		var handler = new TestRequestHandler();
 		var requestId = Guid.NewGuid();
-		var request = new UnsubscribeAllRequest(Status.Error, requestId);
+		var request = new UnsubscribeAllRequest(requestId);
 		var buffer = new byte[request.ByteSize];
 		request.ToBytes(buffer);
 		var stream = BuildRequestStream(UnsubscribeAllRequest.MessageTypeIdentifier, buffer);
