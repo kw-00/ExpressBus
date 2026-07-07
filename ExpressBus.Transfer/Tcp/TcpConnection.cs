@@ -84,6 +84,18 @@ public sealed class TcpConnection : IConnection
 	}
 
 	/// <inheritdoc />
+	public async Task<int> ReceiveFullAsync(Memory<byte> buffer)
+	{
+		int totalRead = 0;
+		while (totalRead < buffer.Length)
+		{
+			var bytesRead = await ReceiveAsync(buffer.Slice(totalRead)).ConfigureAwait(false);
+			totalRead += bytesRead;
+		}
+		return totalRead;
+	}
+
+	/// <inheritdoc />
 	public Task CloseAsync(CloseMode mode)
 	{
 		CloseConnection(mode);

@@ -22,6 +22,16 @@ public interface IConnection
 	Task<int> ReceiveAsync(Memory<byte> buffer);
 
 	/// <summary>
+	/// Continuously calls <see cref="ReceiveAsync"/> until the buffer is completely filled
+	/// or the connection closes. Throws if the buffer cannot be filled.
+	/// </summary>
+	/// <param name="buffer">The buffer to fill with received bytes.</param>
+	/// <returns>The total number of bytes written into <paramref name="buffer"/> (always equal to <paramref name="buffer"/>.Length on success).</returns>
+	/// <exception cref="IOException">Thrown when the connection closes before the buffer is full.</exception>
+	/// <exception cref="Exception">Thrown when the connection is closed or an error occurs.</exception>
+	Task<int> ReceiveFullAsync(Memory<byte> buffer);
+
+	/// <summary>
 	/// Closes the connection using the specified mode.
 	/// </summary>
 	/// <param name="mode">How to close the connection.</param>
