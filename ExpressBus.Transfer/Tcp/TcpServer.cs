@@ -1,73 +1,37 @@
-using System.Net;
 using System.Net.Sockets;
 
 namespace ExpressBus.Transfer.Tcp;
 
 /// <summary>
-/// Abstract TCP server that accepts incoming connections and wraps them as <see cref="IConnection"/>.
-/// Leaves <see cref="HandleConnectionAsync"/> unimplemented — concrete subclasses handle per-connection logic.
+/// TCP server that accepts incoming connections and wraps them as <see cref="TcpConnection"/> instances.
+/// Inherits the listening/accepting infrastructure from <see cref="ServerBase"/> and implements
+/// the socket-specific abstract methods.
 /// </summary>
 public abstract class TcpServer : ServerBase
 {
-	private readonly Address _address;
-	private Socket? _listeningSocket;
-	private CancellationTokenSource? _stoppingToken;
-
 	/// <summary>
 	/// Creates a new <see cref="TcpServer"/> bound to the given <paramref name="address"/>.
 	/// </summary>
 	/// <param name="address">The address to bind and listen on.</param>
-	public TcpServer(Address address)
+	protected TcpServer(Address address)
+		: base(address)
 	{
-		_address = address ?? throw new ArgumentNullException(nameof(address));
 	}
 
 	/// <inheritdoc />
-	public override void StopAsync()
+	protected override Socket CreateListeningSocket()
 	{
-		CloseListeningSocket();
-
-		var cts = _stoppingToken;
-		_stoppingToken = null;
-		cts?.Cancel();
-		cts?.Dispose();
+		return new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 	}
 
 	/// <inheritdoc />
-	protected override async Task RunAcceptLoop(Func<IConnection, Task> connectionHandler)
+	protected override void ConfigureClientSocket(Socket clientSocket)
 	{
-		_stoppingToken = new CancellationTokenSource();
-		var token = _stoppingToken.Token;
-
-		_listeningSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-		_listeningSocket.Bind(new IPEndPoint(SocketEndpoints.Resolve(_address.Host), _address.Port));
-		_listeningSocket.Listen();
-
-		while (!token.IsCancellationRequested)
-		{
-			try
-			{
-				var accepted = await _listeningSocket.AcceptAsync();
-				accepted.NoDelay = true;
-				await connectionHandler(new TcpConnection(accepted));
-			}
-			catch (ObjectDisposedException) when (token.IsCancellationRequested)
-			{
-				break;
-			}
-			catch (SocketException) when (token.IsCancellationRequested)
-			{
-				break;
-			}
-		}
 	}
 
-	/// <summary>
-	/// Closes the listening socket during shutdown.
-	/// </summary>
-	protected void CloseListeningSocket()
+	/// <inheritdoc />
+	protected override IConnection CreateConnection(Socket clientSocket)
 	{
-		_listeningSocket?.Close();
-		_listeningSocket = null;
+		return new TcpConnection(clientSocket);
 	}
 }
