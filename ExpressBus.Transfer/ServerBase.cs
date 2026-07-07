@@ -63,9 +63,9 @@ public abstract class ServerBase : IServer
 	{
 		try
 		{
-			var serverAlreadyRunning = !_serverLock.Wait(0);
-			if (serverAlreadyRunning)
-				throw new InvalidOperationException("Cannot start server, as it is already running.");
+			if (!_serverLock.Wait(0))
+				throw new InvalidOperationException(
+					"Cannot start server, as it is already running or in the process of stopping.");
 			CancellationToken token;
 			try
 			{
