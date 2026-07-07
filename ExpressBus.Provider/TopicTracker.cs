@@ -134,4 +134,26 @@ public sealed class TopicTracker
             _bulkLock.ExitWriteLock();
         }
     }
+
+    /// <summary>
+    /// Returns a copy of the subscriber set for the specified topic.
+    /// </summary>
+    /// <param name="topic">The topic to look up.</param>
+    /// <returns>A <see cref="HashSet{T}"/> containing copies of all subscriber connections,
+    /// or an empty set if the topic has no subscribers.</returns>
+    public HashSet<IConnection> GetSubscribers(ReadOnlyMemory<byte> topic)
+    {
+        _locks.AcquireRead(topic);
+        try
+        {
+            if (!_subscribers.TryGetValue(topic, out var set))
+                return new HashSet<IConnection>(ConnectionReferenceComparer.Instance);
+
+            return new HashSet<IConnection>(set, ConnectionReferenceComparer.Instance);
+        }
+        finally
+        {
+            _locks.ReleaseRead(topic);
+        }
+    }
 }

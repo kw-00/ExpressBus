@@ -1,4 +1,4 @@
-﻿using System.Buffers.Binary;
+using System.Buffers.Binary;
 using ExpressBus.Protocol.Bus;
 using ExpressBus.Transfer;
 
@@ -10,10 +10,11 @@ namespace ExpressBus.Protocol;
 /// <remarks>
 /// <para>
 /// Notifications are fire-and-forget messages pushed from the server to clients.
-/// This class reads from an async stream: the first byte is the MessageTypeIdentifier,
+/// This class reads from a connection: the first byte is the MessageTypeIdentifier,
 /// the next 4 bytes are a little-endian int32 message size, followed by the payload
 /// which is deserialized into the appropriate typed notification. The result is
-/// dispatched to the corresponding handler.
+/// dispatched to the corresponding handler. No response is sent back — notifications
+/// are inherently one-way.
 /// </para>
 /// <para>
 /// This is the client-side counterpart to <see cref="INotificationSender"/>.
@@ -22,9 +23,8 @@ namespace ExpressBus.Protocol;
 /// <see cref="NotificationHandlerBase"/> handle the server-to-client push channel.
 /// </para>
 /// <para>
-/// Allocated buffers are wrapped in <see cref="DisposableMemory"/> and disposed
-/// after the notification is dispatched, ensuring pool-backed memory is always returned
-/// to its source even if the handler throws.
+/// Allocated buffers are disposed after the notification is dispatched, ensuring
+/// pool-backed memory is always returned to its source even if the handler throws.
 /// </para>
 /// </remarks>
 public abstract class NotificationHandlerBase
@@ -37,7 +37,7 @@ public abstract class NotificationHandlerBase
     /// rent from an <see cref="ArrayPool{T}"/> for pooled reuse, or allocate fresh memory.
     /// The returned <see cref="IMemoryOwner{T}"/> must have <c>Memory.Length</c> exactly
     /// equal to <paramref name="size"/>; a mismatch is rejected by <see cref="HandleNotificationAsync"/>.
-    /// The caller is responsible for disposing the returned owner once the bytes have been processed.
+    /// The base class disposes the returned owner after processing the notification.
     /// </remarks>
     /// <param name="size">
     /// The exact byte length required for the buffer.
@@ -49,7 +49,8 @@ public abstract class NotificationHandlerBase
     protected abstract IMemoryOwner<byte> CreateBuffer(int size);
 
     /// <summary>
-    /// Dispatches a serialized notification read from a connection to the appropriate handler.
+    /// Reads a notification from a connection, deserializes it, and dispatches it to the
+    /// appropriate handler. Notifications are fire-and-forget — no response is sent back.
     /// </summary>
     /// <param name="connection">
     /// The connection to read from. The first byte is the MessageTypeIdentifier, the next

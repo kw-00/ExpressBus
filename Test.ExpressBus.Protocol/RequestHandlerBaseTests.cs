@@ -65,6 +65,8 @@ public class RequestHandlerBaseTests
 	{
 		public string? LastHandled { get; private set; }
 
+		public TestRequestHandler(IConnection connection) : base(connection) { }
+
 		protected override IMemoryOwner<byte> CreateBuffer(int size) =>
 			new ExactMemoryOwner(new byte[size]);
 
@@ -107,7 +109,6 @@ public class RequestHandlerBaseTests
 	public async Task HandleRequestAsync_BroadcastDispatched_CorrectHandlerCalled()
 	{
 		// Arrange
-		var handler = new TestRequestHandler();
 		var requestId = Guid.NewGuid();
 		var topic = new SerializableByteMemory(4, new byte[] { 97, 98, 99, 100 });
 		var message = new SerializableByteMemory(3, new byte[] { 10, 20, 30 });
@@ -115,9 +116,10 @@ public class RequestHandlerBaseTests
 		var buffer = new byte[request.ByteSize];
 		request.ToBytes(buffer);
 		var connection = new FakeConnection(BuildRequestBytes(BroadcastRequest.MessageTypeIdentifier, buffer));
+		var handler = new TestRequestHandler(connection);
 
 		// Act
-		await handler.HandleRequestAsync(connection);
+		await handler.HandleRequestAsync();
 
 		// Assert
 		Assert.Equal("Broadcast", handler.LastHandled);
@@ -127,16 +129,16 @@ public class RequestHandlerBaseTests
 	public async Task HandleRequestAsync_SubscribeDispatched_CorrectHandlerCalled()
 	{
 		// Arrange
-		var handler = new TestRequestHandler();
 		var requestId = Guid.NewGuid();
 		var topic = new SerializableByteMemory(5, new byte[] { 1, 2, 3, 4, 5 });
 		var request = new SubscribeRequest(requestId, topic);
 		var buffer = new byte[request.ByteSize];
 		request.ToBytes(buffer);
 		var connection = new FakeConnection(BuildRequestBytes(SubscribeRequest.MessageTypeIdentifier, buffer));
+		var handler = new TestRequestHandler(connection);
 
 		// Act
-		await handler.HandleRequestAsync(connection);
+		await handler.HandleRequestAsync();
 
 		// Assert
 		Assert.Equal("Subscribe", handler.LastHandled);
@@ -146,16 +148,16 @@ public class RequestHandlerBaseTests
 	public async Task HandleRequestAsync_UnsubscribeDispatched_CorrectHandlerCalled()
 	{
 		// Arrange
-		var handler = new TestRequestHandler();
 		var requestId = Guid.NewGuid();
 		var topic = new SerializableByteMemory(4, new byte[] { 97, 98, 99, 100 });
 		var request = new UnsubscribeRequest(requestId, topic);
 		var buffer = new byte[request.ByteSize];
 		request.ToBytes(buffer);
 		var connection = new FakeConnection(BuildRequestBytes(UnsubscribeRequest.MessageTypeIdentifier, buffer));
+		var handler = new TestRequestHandler(connection);
 
 		// Act
-		await handler.HandleRequestAsync(connection);
+		await handler.HandleRequestAsync();
 
 		// Assert
 		Assert.Equal("Unsubscribe", handler.LastHandled);
@@ -165,15 +167,15 @@ public class RequestHandlerBaseTests
 	public async Task HandleRequestAsync_UnsubscribeAllDispatched_CorrectHandlerCalled()
 	{
 		// Arrange
-		var handler = new TestRequestHandler();
 		var requestId = Guid.NewGuid();
 		var request = new UnsubscribeAllRequest(requestId);
 		var buffer = new byte[request.ByteSize];
 		request.ToBytes(buffer);
 		var connection = new FakeConnection(BuildRequestBytes(UnsubscribeAllRequest.MessageTypeIdentifier, buffer));
+		var handler = new TestRequestHandler(connection);
 
 		// Act
-		await handler.HandleRequestAsync(connection);
+		await handler.HandleRequestAsync();
 
 		// Assert
 		Assert.Equal("UnsubscribeAll", handler.LastHandled);
@@ -183,11 +185,11 @@ public class RequestHandlerBaseTests
 	public async Task HandleRequestAsync_UnknownTypeByte_ThrowsFormatException()
 	{
 		// Arrange
-		var handler = new TestRequestHandler();
 		var connection = new FakeConnection(new byte[] { 0x63, 0x00, 0x00, 0x00, 0x00 });
+		var handler = new TestRequestHandler(connection);
 
 		// Act & Assert
-		var ex = await Assert.ThrowsAsync<FormatException>(() => handler.HandleRequestAsync(connection));
+		var ex = await Assert.ThrowsAsync<FormatException>(handler.HandleRequestAsync);
 		Assert.Contains("0x63", ex.Message);
 	}
 
@@ -195,11 +197,11 @@ public class RequestHandlerBaseTests
 	public async Task HandleRequestAsync_TruncatedMessageSize_ThrowsInvalidDataException()
 	{
 		// Arrange
-		var handler = new TestRequestHandler();
 		var connection = new FakeConnection(new byte[] { 0x00, 0x01 });
+		var handler = new TestRequestHandler(connection);
 
 		// Act & Assert
-		var ex = await Assert.ThrowsAsync<IOException>(() => handler.HandleRequestAsync(connection));
+		var ex = await Assert.ThrowsAsync<IOException>(handler.HandleRequestAsync);
 		Assert.Contains("Connection closed", ex.Message);
 	}
 
@@ -207,7 +209,6 @@ public class RequestHandlerBaseTests
 	public async Task HandleRequestAsync_TruncatedPayload_ThrowsInvalidDataException()
 	{
 		// Arrange
-		var handler = new TestRequestHandler();
 		var requestId = Guid.NewGuid();
 		var request = new SubscribeRequest(requestId, new SerializableByteMemory(3, new byte[] { 1, 2, 3 }));
 		var buffer = new byte[request.ByteSize];
@@ -222,9 +223,10 @@ public class RequestHandlerBaseTests
 		sizeBytes.CopyTo(data, 1);
 		halfBuffer.CopyTo(data, 1 + sizeBytes.Length);
 		var connection = new FakeConnection(data);
+		var handler = new TestRequestHandler(connection);
 
 		// Act & Assert
-		var ex = await Assert.ThrowsAsync<IOException>(() => handler.HandleRequestAsync(connection));
+		var ex = await Assert.ThrowsAsync<IOException>(handler.HandleRequestAsync);
 		Assert.Contains("Connection closed", ex.Message);
 	}
 }

@@ -11,10 +11,10 @@ namespace ExpressBus.Protocol;
 /// <para>
 /// This is the server's endpoint for the protocol contract. A concrete subclass implements the
 /// abstract <c>HandleXxxRequest</c> methods to define the business logic for every request type
-/// the server recognizes. <c>HandleRequestAsync</c> reads from an async stream: the first byte is
-/// the MessageTypeIdentifier, the next 4 bytes are a little-endian int32 message size, followed
-/// by the payload which is deserialized into the appropriate typed request. The result is
-/// dispatched to the corresponding handler, serialized, and returned as bytes.
+/// the server recognizes. <c>HandleRequestAsync</c> reads from a connection, dispatches to the
+/// appropriate handler, serializes the result, sends the serialized response back over the same
+/// connection, and disposes all buffers. It returns <see langword="void"/> because all I/O is
+/// performed internally.
 /// </para>
 /// <para>
 /// <see cref="IRequestSender"/> (in the same namespace) is the client-side counterpart — it
@@ -26,58 +26,39 @@ namespace ExpressBus.Protocol;
 /// </remarks>
 public abstract class RequestHandlerBase
 {
-    /// <summary>
-    /// Allocates a buffer of the specified size for either incoming request payloads or
-    /// outgoing response payloads.
-    /// </summary>
-    /// <remarks>
-    /// Implement this method to control the memory allocation strategy — for example,
-    /// rent from an <see cref="ArrayPool{T}"/> for pooled reuse, or allocate fresh memory.
-    /// The returned <see cref="IMemoryOwner{T}"/> must have <c>Memory.Length</c> exactly
-    /// equal to <paramref name="size"/>; a mismatch is rejected by <see cref="HandleRequestAsync"/>.
-    /// The caller is responsible for disposing the returned owner once the bytes have been
-    /// transmitted.
-    /// </remarks>
-    /// <param name="size">
-    /// The exact byte length required for the buffer.
-    /// </param>
-    /// <returns>
-    /// An <see cref="IMemoryOwner{T}"/> whose <see cref="Memory{T}.Length"/> is exactly
-    /// <paramref name="size"/>.
-    /// </returns>
-    protected abstract IMemoryOwner<byte> CreateBuffer(int size);
+    protected readonly IConnection Connection;
+
+    public RequestHandlerBase(IConnection connection)
+    {
+        Connection = connection;
+    }
 
     /// <summary>
-    /// Dispatches a serialized request read from a connection to the appropriate handler
-    /// and returns the serialized response.
+    /// Reads a request from the associated connection, dispatches it to the appropriate handler, serializes
+    /// the response, sends it back over the same connection, and disposes all buffers.
     /// </summary>
     /// <param name="connection">
-    /// The connection to read from. The first byte is the MessageTypeIdentifier, the next
-    /// 4 bytes are a little-endian int32 representing the message payload size, followed by
-    /// the payload bytes.
+    /// The connection to read from and send the response to. The first byte is the
+    /// MessageTypeIdentifier, the next 4 bytes are a little-endian int32 representing
+    /// the message payload size, followed by the payload bytes.
     /// </param>
-    /// <returns>
-    /// A <see cref="DisposableMemory"/> containing the serialized response. The caller owns
-    /// this wrapper and must dispose it after the response bytes have been transmitted.
-    /// The underlying memory is returned to its pool on disposal.
-    /// </returns>
-    public async Task<DisposableMemory> HandleRequestAsync(IConnection connection)
+    public async Task HandleRequestAsync()
     {
         // Read 1 byte: MessageTypeIdentifier
         var typeBuffer = CreateBuffer(1);
-        await connection.ReceiveFullAsync(typeBuffer.Memory).ConfigureAwait(false);
+        await Connection.ReceiveFullAsync(typeBuffer.Memory).ConfigureAwait(false);
         var typeByte = typeBuffer.Memory.Span[0];
         typeBuffer.Dispose();
 
         // Read 4 bytes: message size (little-endian int32)
         var sizeBuffer = CreateBuffer(4);
-        await connection.ReceiveFullAsync(sizeBuffer.Memory).ConfigureAwait(false);
+        await Connection.ReceiveFullAsync(sizeBuffer.Memory).ConfigureAwait(false);
         var messageSize = BinaryPrimitives.ReadInt32LittleEndian(sizeBuffer.Memory.Span);
         sizeBuffer.Dispose();
 
         // Allocate buffer, read payload, deserialize
         var payload = CreateBuffer(messageSize);
-        await connection.ReceiveFullAsync(payload.Memory).ConfigureAwait(false);
+        await Connection.ReceiveFullAsync(payload.Memory).ConfigureAwait(false);
         var requestBytes = payload.Memory;
 
         // Dispatch by MessageTypeIdentifier using if/else chain.
@@ -96,8 +77,29 @@ public abstract class RequestHandlerBase
         else
             throw new FormatException($"Unknown MessageTypeIdentifier: 0x{typeByte:X2}");
 
-        return response;
+        await Connection.SendAsync(response.Memory);
+        response.Dispose();
     }
+    
+    /// <summary>
+    /// Allocates a buffer of the specified size for either incoming request payloads or
+    /// outgoing response payloads.
+    /// </summary>
+    /// <remarks>
+    /// Implement this method to control the memory allocation strategy — for example,
+    /// rent from an <see cref="ArrayPool{T}"/> for pooled reuse, or allocate fresh memory.
+    /// The returned <see cref="IMemoryOwner{T}"/> must have <c>Memory.Length</c> exactly
+    /// equal to <paramref name="size"/>; a mismatch is rejected by <see cref="HandleRequestAsync"/>.
+    /// The base class disposes the returned owner after transmitting the response bytes.
+    /// </remarks>
+    /// <param name="size">
+    /// The exact byte length required for the buffer.
+    /// </param>
+    /// <returns>
+    /// An <see cref="IMemoryOwner{T}"/> whose <see cref="Memory{T}.Length"/> is exactly
+    /// <paramref name="size"/>.
+    /// </returns>
+    protected abstract IMemoryOwner<byte> CreateBuffer(int size);
 
     private DisposableMemory SerializeResponse<T>(T response)
         where T : struct, IByteSerializable<T>, IMessageSize
