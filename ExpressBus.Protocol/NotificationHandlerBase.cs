@@ -29,12 +29,19 @@ namespace ExpressBus.Protocol;
 /// </remarks>
 public abstract class NotificationHandlerBase
 {
+    private readonly IConnection _connection;
+
+    protected NotificationHandlerBase(IConnection connection)
+    {
+        _connection = connection;
+    }
+
     /// <summary>
     /// Allocates a buffer of the specified size for incoming notification payloads.
     /// </summary>
     /// <remarks>
     /// Implement this method to control the memory allocation strategy — for example,
-    /// rent from an <see cref="ArrayPool{T}"/> for pooled reuse, or allocate fresh memory.
+    /// rent from <see cref="MemoryPool{T}.Shared"/> for pooled reuse, or allocate fresh memory.
     /// The returned <see cref="IMemoryOwner{T}"/> must have <c>Memory.Length</c> exactly
     /// equal to <paramref name="size"/>; a mismatch is rejected by <see cref="HandleNotificationAsync"/>.
     /// The base class disposes the returned owner after processing the notification.
@@ -49,31 +56,26 @@ public abstract class NotificationHandlerBase
     protected abstract IMemoryOwner<byte> CreateBuffer(int size);
 
     /// <summary>
-    /// Reads a notification from a connection, deserializes it, and dispatches it to the
+    /// Reads a notification from the associated connection, deserializes it, and dispatches it to the
     /// appropriate handler. Notifications are fire-and-forget — no response is sent back.
     /// </summary>
-    /// <param name="connection">
-    /// The connection to read from. The first byte is the MessageTypeIdentifier, the next
-    /// 4 bytes are a little-endian int32 representing the notification payload size, followed by
-    /// the payload bytes.
-    /// </param>
-    public async Task HandleNotificationAsync(IConnection connection)
+    public async Task HandleNotificationAsync()
     {
         // Read 1 byte: MessageTypeIdentifier
         var typeBuffer = CreateBuffer(1);
-        await connection.ReceiveFullAsync(typeBuffer.Memory).ConfigureAwait(false);
+        await _connection.ReceiveFullAsync(typeBuffer.Memory).ConfigureAwait(false);
         var typeByte = typeBuffer.Memory.Span[0];
         typeBuffer.Dispose();
 
         // Read 4 bytes: message size (little-endian int32)
         var sizeBuffer = CreateBuffer(4);
-        await connection.ReceiveFullAsync(sizeBuffer.Memory).ConfigureAwait(false);
+        await _connection.ReceiveFullAsync(sizeBuffer.Memory).ConfigureAwait(false);
         var messageSize = BinaryPrimitives.ReadInt32LittleEndian(sizeBuffer.Memory.Span);
         sizeBuffer.Dispose();
 
         // Allocate buffer, read payload, deserialize
         var payload = CreateBuffer(messageSize);
-        await connection.ReceiveFullAsync(payload.Memory).ConfigureAwait(false);
+        await _connection.ReceiveFullAsync(payload.Memory).ConfigureAwait(false);
         var notificationBytes = payload.Memory;
 
         // Dispatch by MessageTypeIdentifier using if/else chain.

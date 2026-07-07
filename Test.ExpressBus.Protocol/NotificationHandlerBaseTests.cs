@@ -65,6 +65,9 @@ public class NotificationHandlerBaseTests
 	{
 		public EventNotification LastNotification { get; private set; }
 
+		public TestNotificationHandler(IConnection connection)
+			: base(connection) { }
+
 		protected override IMemoryOwner<byte> CreateBuffer(int size) =>
 			new ExactMemoryOwner(new byte[size]);
 
@@ -89,16 +92,16 @@ public class NotificationHandlerBaseTests
 	public async Task HandleNotificationAsync_BroadcastDispatched_CorrectHandlerCalled()
 	{
 		// Arrange
-		var handler = new TestNotificationHandler();
 		var topic = new SerializableByteMemory(6, new byte[] { 1, 2, 3, 4, 5, 6 });
 		var message = new SerializableByteMemory(2, new byte[] { 7, 8 });
 		var notification = new EventNotification(topic, message);
 		var buffer = new byte[notification.ByteSize];
 		notification.ToBytes(buffer);
 		var connection = new FakeConnection(BuildNotificationBytes(EventNotification.MessageTypeIdentifier, buffer));
+		var handler = new TestNotificationHandler(connection);
 
 		// Act
-		await handler.HandleNotificationAsync(connection);
+		await handler.HandleNotificationAsync();
 
 		// Assert
 		Assert.Equal(notification.Topic.Count, handler.LastNotification.Topic.Count);
@@ -108,11 +111,11 @@ public class NotificationHandlerBaseTests
 	public async Task HandleNotificationAsync_UnknownTypeByte_ThrowsFormatException()
 	{
 		// Arrange
-		var handler = new TestNotificationHandler();
 		var connection = new FakeConnection(new byte[] { 0x63, 0x00, 0x00, 0x00, 0x00 });
+		var handler = new TestNotificationHandler(connection);
 
 		// Act & Assert
-		var ex = await Assert.ThrowsAsync<FormatException>(() => handler.HandleNotificationAsync(connection));
+		var ex = await Assert.ThrowsAsync<FormatException>(() => handler.HandleNotificationAsync());
 		Assert.Contains("0x63", ex.Message);
 	}
 
@@ -120,11 +123,11 @@ public class NotificationHandlerBaseTests
 	public async Task HandleNotificationAsync_TruncatedMessageSize_ThrowsInvalidDataException()
 	{
 		// Arrange
-		var handler = new TestNotificationHandler();
 		var connection = new FakeConnection(new byte[] { 0x00, 0x01 });
+		var handler = new TestNotificationHandler(connection);
 
 		// Act & Assert
-		var ex = await Assert.ThrowsAsync<IOException>(() => handler.HandleNotificationAsync(connection));
+		var ex = await Assert.ThrowsAsync<IOException>(() => handler.HandleNotificationAsync());
 		Assert.Contains("Connection closed", ex.Message);
 	}
 
@@ -132,7 +135,6 @@ public class NotificationHandlerBaseTests
 	public async Task HandleNotificationAsync_TruncatedPayload_ThrowsInvalidDataException()
 	{
 		// Arrange
-		var handler = new TestNotificationHandler();
 		var notification = new EventNotification(
 			new SerializableByteMemory(3, new byte[] { 1, 2, 3 }),
 			new SerializableByteMemory(2, new byte[] { 4, 5 }));
@@ -148,9 +150,10 @@ public class NotificationHandlerBaseTests
 		sizeBytes.CopyTo(data, 1);
 		halfBuffer.CopyTo(data, 1 + sizeBytes.Length);
 		var connection = new FakeConnection(data);
+		var handler = new TestNotificationHandler(connection);
 
 		// Act & Assert
-		var ex = await Assert.ThrowsAsync<IOException>(() => handler.HandleNotificationAsync(connection));
+		var ex = await Assert.ThrowsAsync<IOException>(() => handler.HandleNotificationAsync());
 		Assert.Contains("Connection closed", ex.Message);
 	}
 }
