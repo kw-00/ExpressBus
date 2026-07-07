@@ -13,12 +13,13 @@ public interface IConnection
 	Task SendAsync(ReadOnlyMemory<byte> data);
 
 	/// <summary>
-	/// Receives the next available bytes from the connection.
+	/// Receives the next available bytes from the connection into the provided buffer.
 	/// Returns raw bytes with no framing — callers are responsible for interpreting message boundaries.
 	/// </summary>
-	/// <returns>The received bytes.</returns>
+	/// <param name="buffer">The buffer to fill with received bytes.</param>
+	/// <returns>The number of bytes actually written into <paramref name="buffer"/>.</returns>
 	/// <exception cref="Exception">Thrown when the connection is closed or an error occurs.</exception>
-	Task<ReadOnlyMemory<byte>> ReceiveAsync();
+	Task<int> ReceiveAsync(Memory<byte> buffer);
 
 	/// <summary>
 	/// Closes the connection using the specified mode.

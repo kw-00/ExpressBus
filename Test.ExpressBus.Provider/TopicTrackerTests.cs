@@ -11,7 +11,7 @@ public class TopicTrackerTests
     {
         private readonly Guid _id = Guid.NewGuid();
         public Task SendAsync(ReadOnlyMemory<byte> data) => Task.CompletedTask;
-        public Task<ReadOnlyMemory<byte>> ReceiveAsync() => Task.FromResult(ReadOnlyMemory<byte>.Empty);
+        public Task<int> ReceiveAsync(Memory<byte> buffer) => Task.FromResult(0);
         public Task CloseAsync(CloseMode mode) => Task.CompletedTask;
         public Action<CloseMode>? Closed { get; set; }
         public override int GetHashCode() => _id.GetHashCode();

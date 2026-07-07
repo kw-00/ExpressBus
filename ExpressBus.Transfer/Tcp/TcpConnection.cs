@@ -70,9 +70,8 @@ public sealed class TcpConnection : IConnection
 	}
 
 	/// <inheritdoc />
-	public async Task<ReadOnlyMemory<byte>> ReceiveAsync()
+	public async Task<int> ReceiveAsync(Memory<byte> buffer)
 	{
-		var buffer = new byte[8192];
 		var bytesRead = await _socket.ReceiveAsync(buffer, SocketFlags.None);
 
 		if (bytesRead == 0)
@@ -81,7 +80,7 @@ public sealed class TcpConnection : IConnection
 			throw new IOException("Connection closed by remote end.");
 		}
 
-		return buffer.AsMemory(0, bytesRead);
+		return bytesRead;
 	}
 
 	/// <inheritdoc />
