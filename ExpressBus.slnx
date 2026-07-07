@@ -4,5 +4,6 @@
   <Project Path="ExpressBus.Protocol.SourceGeneration/ExpressBus.Protocol.SourceGeneration.csproj" />
   <Project Path="ExpressBus.Provider/ExpressBus.Provider.csproj" />
   <Project Path="Test.ExpressBus.Protocol/Test.ExpressBus.Protocol.csproj" />
+  <Project Path="Test.ExpressBus.Provider/Test.ExpressBus.Provider.csproj" />
   <Project Path="ExpressBus.Transfer/ExpressBus.Transfer.csproj" />
 </Solution>

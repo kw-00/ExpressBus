@@ -12,6 +12,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\ExpressBus.Concurrency\ExpressBus.Concurrency.csproj" />
     <ProjectReference Include="..\ExpressBus.Protocol\ExpressBus.Protocol.csproj" />
+    <ProjectReference Include="..\ExpressBus.Transfer\ExpressBus.Transfer.csproj" />
   </ItemGroup>
 </Project>
