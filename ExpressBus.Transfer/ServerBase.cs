@@ -16,7 +16,7 @@ public abstract class ServerBase : IServer
 	private CancellationTokenSource? _stoppingTokenSource;
 	private readonly SemaphoreSlim _stoppingTokenLock = new SemaphoreSlim(1, 1);
 
-	private readonly SemaphoreSlim _serverRunLock = new SemaphoreSlim(1, 1);
+	private readonly SemaphoreSlim _serverLock = new SemaphoreSlim(1, 1);
 
 	/// <summary>
 	/// Creates a new <see cref="ServerBase"/> bound to the given <paramref name="address"/>.
@@ -37,7 +37,20 @@ public abstract class ServerBase : IServer
 			_stoppingTokenSource?.Cancel();
 			_stoppingTokenSource?.Dispose();
 			Interlocked.Exchange<CancellationTokenSource?>(ref _stoppingTokenSource, null);
-			CloseListeningSocket();
+			try 
+			{
+				await _serverLock.WaitAsync();
+				foreach (var socket in _clientSockets)
+				{
+					socket.Shutdown(SocketShutdown.Both);
+					socket.Close();	
+				}
+				CloseListeningSocket();
+			}
+			finally
+			{
+				_serverLock.Release();
+			}
 		}
 		finally
 		{
@@ -50,7 +63,7 @@ public abstract class ServerBase : IServer
 	{
 		try
 		{
-			var serverAlreadyRunning = !_serverRunLock.Wait(0);
+			var serverAlreadyRunning = !_serverLock.Wait(0);
 			if (serverAlreadyRunning)
 				throw new InvalidOperationException("Cannot start server, as it is already running.");
 			CancellationToken token;
@@ -97,7 +110,7 @@ public abstract class ServerBase : IServer
 		}
 		finally
 		{
-			_serverRunLock.Release();
+			_serverLock.Release();
 		}
 
 	}
