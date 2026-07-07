@@ -24,20 +24,20 @@ public interface IRequestSender
     /// <summary>
     /// Sends a broadcast request to the server and returns the response.
     /// </summary>
-    Task<IMemoryOwner<byte>> SendBroadcastRequestAsync(BroadcastRequest request);
+    Task<BroadcastResponse> SendBroadcastRequestAsync(BroadcastRequest request);
 
     /// <summary>
     /// Sends a subscribe request to the server and returns the response.
     /// </summary>
-    Task<IMemoryOwner<byte>> SendSubscribeRequestAsync(SubscribeRequest request);
+    Task<SubscribeResponse> SendSubscribeRequestAsync(SubscribeRequest request);
 
     /// <summary>
     /// Sends an unsubscribe request to the server and returns the response.
     /// </summary>
-    Task<IMemoryOwner<byte>> SendUnsubscribeRequestAsync(UnsubscribeRequest request);
+    Task<UnsubscribeResponse> SendUnsubscribeRequestAsync(UnsubscribeRequest request);
 
     /// <summary>
     /// Sends an unsubscribe-all request to the server and returns the response.
     /// </summary>
-    Task<IMemoryOwner<byte>> SendUnsubscribeAllRequestAsync(UnsubscribeAllRequest request);
+    Task<UnsubscribeAllResponse> SendUnsubscribeAllRequestAsync(UnsubscribeAllRequest request);
 }
