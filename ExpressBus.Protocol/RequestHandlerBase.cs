@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using ExpressBus.Protocol.Bus;
+using ExpressBus.Transfer;
 
 namespace ExpressBus.Protocol;
 
@@ -47,11 +48,11 @@ public abstract class RequestHandlerBase
     protected abstract IMemoryOwner<byte> CreateBuffer(int size);
 
     /// <summary>
-    /// Dispatches a serialized request read from a stream to the appropriate handler
+    /// Dispatches a serialized request read from a connection to the appropriate handler
     /// and returns the serialized response.
     /// </summary>
-    /// <param name="stream">
-    /// The incoming request stream. The first byte is the MessageTypeIdentifier, the next
+    /// <param name="connection">
+    /// The connection to read from. The first byte is the MessageTypeIdentifier, the next
     /// 4 bytes are a little-endian int32 representing the message payload size, followed by
     /// the payload bytes.
     /// </param>
@@ -60,19 +61,23 @@ public abstract class RequestHandlerBase
     /// this wrapper and must dispose it after the response bytes have been transmitted.
     /// The underlying memory is returned to its pool on disposal.
     /// </returns>
-    public async Task<DisposableMemory> HandleRequestAsync(Stream stream)
+    public async Task<DisposableMemory> HandleRequestAsync(IConnection connection)
     {
         // Read 1 byte: MessageTypeIdentifier
-        var typeByte = await ByteTools.ReadSingleByteAsync(stream).ConfigureAwait(false);
+        var typeBuffer = CreateBuffer(1);
+        await connection.ReceiveFullAsync(typeBuffer.Memory).ConfigureAwait(false);
+        var typeByte = typeBuffer.Memory.Span[0];
+        typeBuffer.Dispose();
 
         // Read 4 bytes: message size (little-endian int32)
-        var sizeBuffer = new byte[4];
-        await ByteTools.ReadExactlyAsync(stream, sizeBuffer).ConfigureAwait(false);
-        var messageSize = BinaryPrimitives.ReadInt32LittleEndian(sizeBuffer);
+        var sizeBuffer = CreateBuffer(4);
+        await connection.ReceiveFullAsync(sizeBuffer.Memory).ConfigureAwait(false);
+        var messageSize = BinaryPrimitives.ReadInt32LittleEndian(sizeBuffer.Memory.Span);
+        sizeBuffer.Dispose();
 
         // Allocate buffer, read payload, deserialize
         var payload = CreateBuffer(messageSize);
-        await ByteTools.ReadExactlyAsync(stream, payload.Memory).ConfigureAwait(false);
+        await connection.ReceiveFullAsync(payload.Memory).ConfigureAwait(false);
         var requestBytes = payload.Memory;
 
         // Dispatch by MessageTypeIdentifier using if/else chain.

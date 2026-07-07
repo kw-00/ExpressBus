@@ -1,6 +1,7 @@
 using System.Buffers;
 using ExpressBus.Protocol;
 using ExpressBus.Protocol.Bus;
+using ExpressBus.Transfer;
 
 public class RequestHandlerBaseTests
 {
@@ -15,6 +16,46 @@ public class RequestHandlerBaseTests
 		public ExactMemoryOwner(byte[] buffer) => _buffer = buffer;
 		public Memory<byte> Memory => _buffer.AsMemory();
 		public void Dispose() { }
+	}
+
+	/// <summary>
+	/// A fake <see cref="IConnection"/> backed by a byte array.
+	/// </summary>
+	private sealed class FakeConnection : IConnection
+	{
+		private readonly byte[] _data;
+		private int _position;
+
+		public FakeConnection(byte[] data) => _data = data;
+
+		public Task SendAsync(ReadOnlyMemory<byte> data) => Task.CompletedTask;
+
+		public async Task<int> ReceiveAsync(Memory<byte> buffer)
+		{
+			var available = _data.Length - _position;
+			if (available == 0)
+			{
+				throw new IOException("Connection closed by remote end.");
+			}
+			var toCopy = Math.Min(buffer.Length, available);
+			_data.AsSpan(_position, toCopy).CopyTo(buffer.Span);
+			_position += toCopy;
+			return toCopy;
+		}
+
+		public Task<int> ReceiveFullAsync(Memory<byte> buffer)
+		{
+			int totalRead = 0;
+			while (totalRead < buffer.Length)
+			{
+				var bytesRead = ReceiveAsync(buffer.Slice(totalRead)).GetAwaiter().GetResult();
+				totalRead += bytesRead;
+			}
+			return Task.FromResult(totalRead);
+		}
+
+		public Task CloseAsync(CloseMode mode) => Task.CompletedTask;
+		public Action<CloseMode>? Closed { get; set; }
 	}
 
 	/// <summary>
@@ -52,14 +93,14 @@ public class RequestHandlerBaseTests
 		}
 	}
 
-	private static MemoryStream BuildRequestStream(byte typeByte, byte[] payload)
+	private static byte[] BuildRequestBytes(byte typeByte, byte[] payload)
 	{
 		var sizeBytes = BitConverter.GetBytes(payload.Length);
 		var data = new byte[1 + sizeBytes.Length + payload.Length];
 		data[0] = typeByte;
 		sizeBytes.CopyTo(data, 1);
 		payload.CopyTo(data, 1 + sizeBytes.Length);
-		return new MemoryStream(data);
+		return data;
 	}
 
 	[Fact]
@@ -73,10 +114,10 @@ public class RequestHandlerBaseTests
 		var request = new BroadcastRequest(requestId, topic, message);
 		var buffer = new byte[request.ByteSize];
 		request.ToBytes(buffer);
-		var stream = BuildRequestStream(BroadcastRequest.MessageTypeIdentifier, buffer);
+		var connection = new FakeConnection(BuildRequestBytes(BroadcastRequest.MessageTypeIdentifier, buffer));
 
 		// Act
-		await handler.HandleRequestAsync(stream);
+		await handler.HandleRequestAsync(connection);
 
 		// Assert
 		Assert.Equal("Broadcast", handler.LastHandled);
@@ -92,10 +133,10 @@ public class RequestHandlerBaseTests
 		var request = new SubscribeRequest(requestId, topic);
 		var buffer = new byte[request.ByteSize];
 		request.ToBytes(buffer);
-		var stream = BuildRequestStream(SubscribeRequest.MessageTypeIdentifier, buffer);
+		var connection = new FakeConnection(BuildRequestBytes(SubscribeRequest.MessageTypeIdentifier, buffer));
 
 		// Act
-		await handler.HandleRequestAsync(stream);
+		await handler.HandleRequestAsync(connection);
 
 		// Assert
 		Assert.Equal("Subscribe", handler.LastHandled);
@@ -111,10 +152,10 @@ public class RequestHandlerBaseTests
 		var request = new UnsubscribeRequest(requestId, topic);
 		var buffer = new byte[request.ByteSize];
 		request.ToBytes(buffer);
-		var stream = BuildRequestStream(UnsubscribeRequest.MessageTypeIdentifier, buffer);
+		var connection = new FakeConnection(BuildRequestBytes(UnsubscribeRequest.MessageTypeIdentifier, buffer));
 
 		// Act
-		await handler.HandleRequestAsync(stream);
+		await handler.HandleRequestAsync(connection);
 
 		// Assert
 		Assert.Equal("Unsubscribe", handler.LastHandled);
@@ -129,10 +170,10 @@ public class RequestHandlerBaseTests
 		var request = new UnsubscribeAllRequest(requestId);
 		var buffer = new byte[request.ByteSize];
 		request.ToBytes(buffer);
-		var stream = BuildRequestStream(UnsubscribeAllRequest.MessageTypeIdentifier, buffer);
+		var connection = new FakeConnection(BuildRequestBytes(UnsubscribeAllRequest.MessageTypeIdentifier, buffer));
 
 		// Act
-		await handler.HandleRequestAsync(stream);
+		await handler.HandleRequestAsync(connection);
 
 		// Assert
 		Assert.Equal("UnsubscribeAll", handler.LastHandled);
@@ -143,11 +184,10 @@ public class RequestHandlerBaseTests
 	{
 		// Arrange
 		var handler = new TestRequestHandler();
-		var stream = new MemoryStream(new byte[] { 0x63, 0x00, 0x00, 0x00, 0x00 });
-		stream.Position = 0;
+		var connection = new FakeConnection(new byte[] { 0x63, 0x00, 0x00, 0x00, 0x00 });
 
 		// Act & Assert
-		var ex = await Assert.ThrowsAsync<FormatException>(() => handler.HandleRequestAsync(stream));
+		var ex = await Assert.ThrowsAsync<FormatException>(() => handler.HandleRequestAsync(connection));
 		Assert.Contains("0x63", ex.Message);
 	}
 
@@ -156,12 +196,11 @@ public class RequestHandlerBaseTests
 	{
 		// Arrange
 		var handler = new TestRequestHandler();
-		var stream = new MemoryStream(new byte[] { 0x00, 0x01 });
-		stream.Position = 0;
+		var connection = new FakeConnection(new byte[] { 0x00, 0x01 });
 
 		// Act & Assert
-		var ex = await Assert.ThrowsAsync<InvalidDataException>(() => handler.HandleRequestAsync(stream));
-		Assert.Contains("Unexpected end of stream", ex.Message);
+		var ex = await Assert.ThrowsAsync<IOException>(() => handler.HandleRequestAsync(connection));
+		Assert.Contains("Connection closed", ex.Message);
 	}
 
 	[Fact]
@@ -182,11 +221,10 @@ public class RequestHandlerBaseTests
 		data[0] = SubscribeRequest.MessageTypeIdentifier;
 		sizeBytes.CopyTo(data, 1);
 		halfBuffer.CopyTo(data, 1 + sizeBytes.Length);
-		var stream = new MemoryStream(data);
+		var connection = new FakeConnection(data);
 
 		// Act & Assert
-		var ex = await Assert.ThrowsAsync<InvalidDataException>(() => handler.HandleRequestAsync(stream));
-		Assert.Contains("Unexpected end of stream", ex.Message);
+		var ex = await Assert.ThrowsAsync<IOException>(() => handler.HandleRequestAsync(connection));
+		Assert.Contains("Connection closed", ex.Message);
 	}
-
 }

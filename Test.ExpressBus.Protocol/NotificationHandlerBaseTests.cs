@@ -1,6 +1,7 @@
 using System.Buffers;
 using ExpressBus.Protocol;
 using ExpressBus.Protocol.Bus;
+using ExpressBus.Transfer;
 
 public class NotificationHandlerBaseTests
 {
@@ -15,6 +16,46 @@ public class NotificationHandlerBaseTests
 		public ExactMemoryOwner(byte[] buffer) => _buffer = buffer;
 		public Memory<byte> Memory => _buffer.AsMemory();
 		public void Dispose() { }
+	}
+
+	/// <summary>
+	/// A fake <see cref="IConnection"/> backed by a byte array.
+	/// </summary>
+	private sealed class FakeConnection : IConnection
+	{
+		private readonly byte[] _data;
+		private int _position;
+
+		public FakeConnection(byte[] data) => _data = data;
+
+		public Task SendAsync(ReadOnlyMemory<byte> data) => Task.CompletedTask;
+
+		public async Task<int> ReceiveAsync(Memory<byte> buffer)
+		{
+			var available = _data.Length - _position;
+			if (available == 0)
+			{
+				throw new IOException("Connection closed by remote end.");
+			}
+			var toCopy = Math.Min(buffer.Length, available);
+			_data.AsSpan(_position, toCopy).CopyTo(buffer.Span);
+			_position += toCopy;
+			return toCopy;
+		}
+
+		public Task<int> ReceiveFullAsync(Memory<byte> buffer)
+		{
+			int totalRead = 0;
+			while (totalRead < buffer.Length)
+			{
+				var bytesRead = ReceiveAsync(buffer.Slice(totalRead)).GetAwaiter().GetResult();
+				totalRead += bytesRead;
+			}
+			return Task.FromResult(totalRead);
+		}
+
+		public Task CloseAsync(CloseMode mode) => Task.CompletedTask;
+		public Action<CloseMode>? Closed { get; set; }
 	}
 
 	/// <summary>
@@ -34,14 +75,14 @@ public class NotificationHandlerBaseTests
 		}
 	}
 
-	private static MemoryStream BuildNotificationStream(byte typeByte, byte[] payload)
+	private static byte[] BuildNotificationBytes(byte typeByte, byte[] payload)
 	{
 		var sizeBytes = BitConverter.GetBytes(payload.Length);
 		var data = new byte[1 + sizeBytes.Length + payload.Length];
 		data[0] = typeByte;
 		sizeBytes.CopyTo(data, 1);
 		payload.CopyTo(data, 1 + sizeBytes.Length);
-		return new MemoryStream(data);
+		return data;
 	}
 
 	[Fact]
@@ -54,10 +95,10 @@ public class NotificationHandlerBaseTests
 		var notification = new EventNotification(topic, message);
 		var buffer = new byte[notification.ByteSize];
 		notification.ToBytes(buffer);
-		var stream = BuildNotificationStream(EventNotification.MessageTypeIdentifier, buffer);
+		var connection = new FakeConnection(BuildNotificationBytes(EventNotification.MessageTypeIdentifier, buffer));
 
 		// Act
-		await handler.HandleNotificationAsync(stream);
+		await handler.HandleNotificationAsync(connection);
 
 		// Assert
 		Assert.Equal(notification.Topic.Count, handler.LastNotification.Topic.Count);
@@ -68,11 +109,10 @@ public class NotificationHandlerBaseTests
 	{
 		// Arrange
 		var handler = new TestNotificationHandler();
-		var stream = new MemoryStream(new byte[] { 0x63, 0x00, 0x00, 0x00, 0x00 });
-		stream.Position = 0;
+		var connection = new FakeConnection(new byte[] { 0x63, 0x00, 0x00, 0x00, 0x00 });
 
 		// Act & Assert
-		var ex = await Assert.ThrowsAsync<FormatException>(() => handler.HandleNotificationAsync(stream));
+		var ex = await Assert.ThrowsAsync<FormatException>(() => handler.HandleNotificationAsync(connection));
 		Assert.Contains("0x63", ex.Message);
 	}
 
@@ -81,12 +121,11 @@ public class NotificationHandlerBaseTests
 	{
 		// Arrange
 		var handler = new TestNotificationHandler();
-		var stream = new MemoryStream(new byte[] { 0x00, 0x01 });
-		stream.Position = 0;
+		var connection = new FakeConnection(new byte[] { 0x00, 0x01 });
 
 		// Act & Assert
-		var ex = await Assert.ThrowsAsync<InvalidDataException>(() => handler.HandleNotificationAsync(stream));
-		Assert.Contains("Unexpected end of stream", ex.Message);
+		var ex = await Assert.ThrowsAsync<IOException>(() => handler.HandleNotificationAsync(connection));
+		Assert.Contains("Connection closed", ex.Message);
 	}
 
 	[Fact]
@@ -108,10 +147,10 @@ public class NotificationHandlerBaseTests
 		data[0] = EventNotification.MessageTypeIdentifier;
 		sizeBytes.CopyTo(data, 1);
 		halfBuffer.CopyTo(data, 1 + sizeBytes.Length);
-		var stream = new MemoryStream(data);
+		var connection = new FakeConnection(data);
 
 		// Act & Assert
-		var ex = await Assert.ThrowsAsync<InvalidDataException>(() => handler.HandleNotificationAsync(stream));
-		Assert.Contains("Unexpected end of stream", ex.Message);
+		var ex = await Assert.ThrowsAsync<IOException>(() => handler.HandleNotificationAsync(connection));
+		Assert.Contains("Connection closed", ex.Message);
 	}
 }
