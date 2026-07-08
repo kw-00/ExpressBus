@@ -39,7 +39,7 @@ public abstract class ExpressBusClientBase : IAsyncDisposable
         _eventHandlers = new EventHandlers();
         _notificationHandler = new ClientNotificationHandler(_connection, _eventHandlers);
         _topicHandlerCount = new ConcurrentDictionary<ReadOnlyMemory<byte>, int>(
-            TopicKeyComparer.Instance);
+            MemoryComparer<byte>.Instance);
 
         _notificationLoopTask = Task.Run(NotificationLoopAsync);
     }

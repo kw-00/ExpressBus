@@ -1,9 +1,8 @@
-using ExpressBus.Concurrency;
 using ExpressBus.DataStructures;
 
 public class GroupingTests
 {
-    private static readonly TopicKeyComparer Comparer = TopicKeyComparer.Instance;
+    private static readonly MemoryComparer<byte> Comparer = MemoryComparer<byte>.Instance;
     private static readonly Func<ReadOnlyMemory<byte>, int> HashFunc = HashProducers.ForReadOnlyMemoryByte;
 
     private static ReadOnlyMemory<byte> Topic(string name) =>

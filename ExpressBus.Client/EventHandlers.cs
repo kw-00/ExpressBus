@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using ExpressBus.Concurrency;
 using ExpressBus.DataStructures;
 
 namespace ExpressBus.Client;
@@ -22,7 +21,7 @@ public sealed class EventHandlers
     public EventHandlers()
     {
         _handlers = new Grouping<ReadOnlyMemory<byte>, Action<ReadOnlyMemory<byte>>>(
-            TopicKeyComparer.Instance,
+            MemoryComparer<byte>.Instance,
             HashProducers.ForReadOnlyMemoryByte);
     }
 

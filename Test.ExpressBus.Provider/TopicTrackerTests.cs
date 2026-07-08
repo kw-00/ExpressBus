@@ -1,4 +1,5 @@
 using ExpressBus.Concurrency;
+using ExpressBus.DataStructures;
 using ExpressBus.Provider;
 using ExpressBus.Transfer;
 

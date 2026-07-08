@@ -5,20 +5,22 @@ namespace ExpressBus.DataStructures;
 /// <summary>
 /// Comparer that hashes and compares <see cref="ReadOnlyMemory{T}"/> by contents.
 /// </summary>
-public sealed class TopicKeyComparer : IEqualityComparer<ReadOnlyMemory<byte>>
+/// <typeparam name="T">The element type. Must be a non-abstract type with parameterless constructor.</typeparam>
+public sealed class MemoryComparer<T> : IEqualityComparer<ReadOnlyMemory<T>>
+    where T : unmanaged, IEquatable<T>
 {
-    public static readonly TopicKeyComparer Instance = new();
+    public static readonly MemoryComparer<T> Instance = new();
 
-    private TopicKeyComparer() { }
+    private MemoryComparer() { }
 
-    public bool Equals(ReadOnlyMemory<byte> x, ReadOnlyMemory<byte> y)
+    public bool Equals(ReadOnlyMemory<T> x, ReadOnlyMemory<T> y)
     {
         if (x.Length != y.Length)
             return false;
         return x.Span.SequenceEqual(y.Span);
     }
 
-    public int GetHashCode(ReadOnlyMemory<byte> obj)
+    public int GetHashCode(ReadOnlyMemory<T> obj)
     {
         var span = obj.Span;
         var hc = new System.HashCode();

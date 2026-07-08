@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Threading;
-using ExpressBus.Concurrency;
 using ExpressBus.DataStructures;
 using ExpressBus.Transfer;
 
@@ -26,7 +25,7 @@ public sealed class TopicTracker
     public TopicTracker(int partitionCount = 16)
     {
         _subscribers = new Grouping<ReadOnlyMemory<byte>, IConnection>(
-            TopicKeyComparer.Instance,
+            MemoryComparer<byte>.Instance,
             HashProducers.ForReadOnlyMemoryByte,
             partitionCount);
     }
