@@ -1,9 +1,11 @@
 <Solution>
   <Project Path="ExpressBus.Client/ExpressBus.Client.csproj" />
+  <Project Path="ExpressBus.DataStructures/ExpressBus.DataStructures.csproj" />
   <Project Path="ExpressBus.Protocol/ExpressBus.Protocol.csproj" />
   <Project Path="ExpressBus.Protocol.SourceGeneration/ExpressBus.Protocol.SourceGeneration.csproj" />
   <Project Path="ExpressBus.Provider/ExpressBus.Provider.csproj" />
   <Project Path="Test.ExpressBus.Protocol/Test.ExpressBus.Protocol.csproj" />
   <Project Path="Test.ExpressBus.Provider/Test.ExpressBus.Provider.csproj" />
+  <Project Path="Test.ExpressBus.DataStructures/Test.ExpressBus.DataStructures.csproj" />
   <Project Path="ExpressBus.Transfer/ExpressBus.Transfer.csproj" />
 </Solution>

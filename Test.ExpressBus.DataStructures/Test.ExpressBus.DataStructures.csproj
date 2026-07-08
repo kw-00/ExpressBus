@@ -21,7 +21,6 @@
   <ItemGroup>
     <ProjectReference Include="..\ExpressBus.Concurrency\ExpressBus.Concurrency.csproj" />
     <ProjectReference Include="..\ExpressBus.DataStructures\ExpressBus.DataStructures.csproj" />
-    <ProjectReference Include="..\ExpressBus.Provider\ExpressBus.Provider.csproj" />
   </ItemGroup>
 
 </Project>

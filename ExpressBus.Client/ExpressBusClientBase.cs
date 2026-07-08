@@ -1,5 +1,6 @@
 using System.Buffers;
 using System.Collections.Concurrent;
+using ExpressBus.DataStructures;
 using ExpressBus.Protocol;
 using ExpressBus.Protocol.Bus;
 using ExpressBus.Transfer;
@@ -27,7 +28,7 @@ public abstract class ExpressBusClientBase : IAsyncDisposable
     private bool _disposed;
 
     /// <summary>
-    /// Creates a new <see cref="EstablishConnection"/> and starts the notification read loop.
+    /// Creates a new <see cref="ExpressBusClientBase"/> and starts the notification read loop.
     /// </summary>
     /// <param name="address">The broker address to connect to.</param>
     protected ExpressBusClientBase(Address address)
@@ -38,7 +39,7 @@ public abstract class ExpressBusClientBase : IAsyncDisposable
         _eventHandlers = new EventHandlers();
         _notificationHandler = new ClientNotificationHandler(_connection, _eventHandlers);
         _topicHandlerCount = new ConcurrentDictionary<ReadOnlyMemory<byte>, int>(
-            new TopicKeyComparer());
+            TopicKeyComparer.Instance);
 
         _notificationLoopTask = Task.Run(NotificationLoopAsync);
     }
@@ -54,7 +55,9 @@ public abstract class ExpressBusClientBase : IAsyncDisposable
     protected abstract IConnection EstablishConnection();
 
     /// <summary>
-    /// Subscribes to events on the specified topic.
+    /// Subscribes to events on the specified topic. Multiple handlers can be registered
+    /// for the same topic. A broker-side subscription is sent only when the first handler
+    /// is registered for a given topic.
     /// </summary>
     /// <param name="topic">The topic to subscribe to.</param>
     /// <param name="handler">The action to invoke when an event notification is received for this topic.</param>
@@ -77,14 +80,19 @@ public abstract class ExpressBusClientBase : IAsyncDisposable
     }
 
     /// <summary>
-    /// Unsubscribes from the specified topic.
+    /// Unsubscribes from the specified topic, removing all registered handlers.
+    /// A broker-side unsubscribe is sent only when the last handler is removed.
     /// </summary>
     /// <param name="topic">The topic to unsubscribe from.</param>
     public void Unsubscribe(ReadOnlyMemory<byte> topic)
     {
         lock (_lock)
         {
-            _eventHandlers.Remove(topic);
+            var handlers = _eventHandlers.GetHandlers(topic);
+            foreach (var handler in handlers)
+            {
+                _eventHandlers.Remove(topic, handler);
+            }
 
             var newCount = _topicHandlerCount.AddOrUpdate(topic,
                 _ => 0,
@@ -158,31 +166,6 @@ public abstract class ExpressBusClientBase : IAsyncDisposable
         catch
         {
             // Ignore disposal errors
-        }
-    }
-
-    /// <summary>
-    /// Custom comparer that hashes and compares <see cref="ReadOnlyMemory{T}"/> by contents.
-    /// </summary>
-    internal sealed class TopicKeyComparer : IEqualityComparer<ReadOnlyMemory<byte>>
-    {
-        public static readonly TopicKeyComparer Instance = new();
-        internal TopicKeyComparer() { }
-
-        public bool Equals(ReadOnlyMemory<byte> x, ReadOnlyMemory<byte> y)
-        {
-            if (x.Length != y.Length)
-                return false;
-            return x.Span.SequenceEqual(y.Span);
-        }
-
-        public int GetHashCode(ReadOnlyMemory<byte> obj)
-        {
-            var span = obj.Span;
-            var hc = new System.HashCode();
-            for (var i = 0; i < span.Length; i++)
-                hc.Add(span[i]);
-            return hc.ToHashCode();
         }
     }
 }
