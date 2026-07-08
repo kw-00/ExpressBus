@@ -34,14 +34,13 @@ public abstract class RequestHandlerBase
     }
 
     /// <summary>
-    /// Reads a request from the associated connection, dispatches it to the appropriate handler, serializes
-    /// the response, sends it back over the same connection, and disposes all buffers.
+    /// Reads a single request from the associated connection, dispatches it to the appropriate handler,
+    /// serializes the response, sends it back over the same connection, and disposes all buffers.
     /// </summary>
-    /// <param name="connection">
-    /// The connection to read from and send the response to. The first byte is the
-    /// MessageTypeIdentifier, the next 4 bytes are a little-endian int32 representing
-    /// the message payload size, followed by the payload bytes.
-    /// </param>
+    /// <remarks>
+    /// For a looping variant that handles multiple requests until cancellation,
+    /// use <see cref="HandleRequestAsync(CancellationToken)"/>.
+    /// </remarks>
     public async Task HandleRequestAsync()
     {
         // Read 1 byte: MessageTypeIdentifier
@@ -79,6 +78,22 @@ public abstract class RequestHandlerBase
 
         await Connection.SendAsync(response.Memory);
         response.Dispose();
+    }
+
+    /// <summary>
+    /// Repeatedly reads requests from the associated connection, dispatches each one,
+    /// sends the response, and loops until <paramref name="cancellationToken"/> is triggered.
+    /// </summary>
+    /// <param name="cancellationToken">
+    /// Triggered when the connection closes (via <see cref="IConnection.Closed"/>).
+    /// Causes the loop to exit cleanly.
+    /// </param>
+    public async Task HandleRequestAsync(CancellationToken cancellationToken)
+    {
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            await HandleRequestAsync().ConfigureAwait(false);
+        }
     }
     
     /// <summary>

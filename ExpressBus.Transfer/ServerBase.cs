@@ -69,7 +69,10 @@ public abstract class ServerBase : IServer
 			CancellationToken token;
 			try
 			{
-				await _stoppingTokenLock.WaitAsync();
+				if (!_stoppingTokenLock.WaitAsync())
+					throw new InvalidOperationException(
+						"Cannot start server, as it is currently stopping."
+					);
 				Interlocked.Exchange<CancellationTokenSource?>(ref _stoppingTokenSource, new CancellationTokenSource());
 				token = _stoppingTokenSource.Token;
 			}
@@ -117,12 +120,14 @@ public abstract class ServerBase : IServer
 
 	protected abstract Socket CreateListeningSocket();
 
-	protected abstract void ConfigureClientSocket(Socket clientSocket);
+	protected virtual void ConfigureClientSocket(Socket clientSocket) { }
 
 	protected abstract IConnection CreateConnection(Socket clientSocket);
 
 	protected abstract Task HandleConnectionAsync(IConnection connection);
 
+	protected virtual Task CleanUpAfterStopAsync() { }
+	
 	/// <summary>
 	/// Closes the listening socket during shutdown.
 	/// </summary>

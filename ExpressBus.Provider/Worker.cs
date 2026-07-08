@@ -10,7 +10,6 @@ public class Worker(ILogger<Worker> logger) : BackgroundService
         var broker = new BrokerServer(
             new Address("0.0.0.0", 9000), // TODO: configurable via appsettings
             topicTracker,
-            connection => new RequestHandler(connection, topicTracker, logger),
             logger);
 
         logger.LogInformation("Starting ExpressBus broker on 0.0.0.0:9000");
