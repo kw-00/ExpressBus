@@ -1,4 +1,3 @@
-using System.Threading;
 using ExpressBus.Transfer;
 using ExpressBus.Transfer.Tcp;
 
@@ -14,7 +13,7 @@ namespace ExpressBus.Provider;
 /// which triggers a <see cref="CancellationTokenSource"/> that cancels the loop.
 /// On connection exit, the client is removed from all tracked topics.
 /// </remarks>
-public sealed class BrokerServer : TcpServer
+public sealed class BrokerServer : ServerBase
 {
     private readonly TopicTracker _topicTracker;
     private readonly ILogger? _logger;
@@ -23,20 +22,14 @@ public sealed class BrokerServer : TcpServer
     /// Creates a new <see cref="BrokerServer"/>.
     /// </summary>
     /// <param name="address">The address to bind and listen on.</param>
-    /// <param name="topicTracker">The shared topic tracker for managing subscriptions.</param>
     /// <param name="logger">Optional logger for diagnostic output.</param>
-    public BrokerServer(Address address, TopicTracker topicTracker, ILogger? logger = null)
-        : base(address)
+    public BrokerServer(Address address, ILogger? logger = null)
+        : base(address, new TcpConnectionFactory())
     {
-        _topicTracker = topicTracker;
+        _topicTracker = new TopicTracker();
         _logger = logger;
     }
 
-    /// <inheritdoc />
-    public override Task StopAsync()
-    {
-        
-    }
 
     /// <inheritdoc />
     protected override async Task HandleConnectionAsync(IConnection connection)
@@ -77,5 +70,12 @@ public sealed class BrokerServer : TcpServer
             }
 
         }
+    }
+
+    /// <inheritdoc />
+    protected override Task CleanupOnCloseAsync()
+    {
+        _topicTracker.ClearAll();
+        return Task.CompletedTask;
     }
 }

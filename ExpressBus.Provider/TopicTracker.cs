@@ -73,4 +73,20 @@ public sealed class TopicTracker
     {
         return _subscribers.Get(topic);
     }
+
+    /// <summary>
+    /// Removes all subscribers from all topics.
+    /// </summary>
+    public void ClearAll()
+    {
+        _bulkLock.EnterWriteLock();
+        try
+        {
+            _subscribers.Clear();
+        }
+        finally
+        {
+            _bulkLock.ExitWriteLock();
+        }
+    }
 }

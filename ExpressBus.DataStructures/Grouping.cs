@@ -99,6 +99,22 @@ public sealed class Grouping<G, V> where G : notnull
     /// <summary>
     /// Removes the value from all groups it appears in.
     /// </summary>
+    /// <summary>
+    /// Removes all groups and their values.
+    /// </summary>
+    public void Clear()
+    {
+        _bulkLock.EnterWriteLock();
+        try
+        {
+            _groups.Clear();
+        }
+        finally
+        {
+            _bulkLock.ExitWriteLock();
+        }
+    }
+
     public void RemoveAll(V value)
     {
         _bulkLock.EnterWriteLock();

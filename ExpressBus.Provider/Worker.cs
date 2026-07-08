@@ -6,10 +6,8 @@ public class Worker(ILogger<Worker> logger) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var topicTracker = new TopicTracker();
         var broker = new BrokerServer(
             new Address("0.0.0.0", 9000), // TODO: configurable via appsettings
-            topicTracker,
             logger);
 
         logger.LogInformation("Starting ExpressBus broker on 0.0.0.0:9000");

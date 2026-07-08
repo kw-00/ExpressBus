@@ -1,15 +1,17 @@
 using System.Net;
 using System.Net.Sockets;
+using ExpressBus.Transfer.Tcp;
 
-namespace ExpressBus.Transfer.Tcp;
+namespace ExpressBus.Transfer;
 
 /// <summary>
-/// Abstract TCP server that accepts incoming connections and wraps them as <see cref="IConnection"/>.
+/// Abstract server that accepts incoming connections and wraps them as <see cref="IConnection"/>.
 /// Leaves <see cref="HandleConnectionAsync"/> unimplemented — concrete subclasses handle per-connection logic.
 /// </summary>
-public abstract class ServerBase : IServer 
+public abstract class ServerBase : IServer
 {
 	private readonly Address _address;
+	private readonly IConnectionFactory _connectionFactory;
 	private HashSet<Socket> _clientSockets = new();
 	private Socket? _listeningSocket;
 
@@ -22,9 +24,11 @@ public abstract class ServerBase : IServer
 	/// Creates a new <see cref="ServerBase"/> bound to the given <paramref name="address"/>.
 	/// </summary>
 	/// <param name="address">The address to bind and listen on.</param>
-	public ServerBase(Address address)
+	/// <param name="connectionFactory">Factory for creating and configuring sockets.</param>
+	public ServerBase(Address address, IConnectionFactory connectionFactory)
 	{
 		_address = address ?? throw new ArgumentNullException(nameof(address));
+		_connectionFactory = connectionFactory ?? throw new ArgumentNullException(nameof(connectionFactory));
 	}
 
 	/// <inheritdoc />
@@ -37,14 +41,15 @@ public abstract class ServerBase : IServer
 			_stoppingTokenSource?.Cancel();
 			_stoppingTokenSource?.Dispose();
 			Interlocked.Exchange<CancellationTokenSource?>(ref _stoppingTokenSource, null);
-			try 
+			try
 			{
 				await _serverLock.WaitAsync();
 				foreach (var socket in _clientSockets)
 				{
 					socket.Shutdown(SocketShutdown.Both);
-					socket.Close();	
+					socket.Close();
 				}
+				await CleanupOnCloseAsync().ConfigureAwait(false);
 				CloseListeningSocket();
 			}
 			finally
@@ -69,7 +74,7 @@ public abstract class ServerBase : IServer
 			CancellationToken token;
 			try
 			{
-				if (!_stoppingTokenLock.WaitAsync())
+					if (!_stoppingTokenLock.Wait(0))
 					throw new InvalidOperationException(
 						"Cannot start server, as it is currently stopping."
 					);
@@ -80,7 +85,7 @@ public abstract class ServerBase : IServer
 			{
 				_stoppingTokenLock.Release();
 			}
-			_listeningSocket = CreateListeningSocket();
+			_listeningSocket = _connectionFactory.CreateListeningSocket();
 			_listeningSocket.Bind(new IPEndPoint(SocketEndpoints.Resolve(_address.Host), _address.Port));
 			_listeningSocket.Listen();
 
@@ -91,8 +96,7 @@ public abstract class ServerBase : IServer
 				{
 					client = await _listeningSocket.AcceptAsync(token);
 					_clientSockets.Add(client);
-					ConfigureClientSocket(client);
-					_ = HandleConnectionAsync(CreateConnection(client));
+					_ = HandleConnectionAsync(_connectionFactory.CreateConnectionFromAcceptedSocket(client));
 				}
 				catch (Exception ex)
 				{
@@ -118,16 +122,10 @@ public abstract class ServerBase : IServer
 
 	}
 
-	protected abstract Socket CreateListeningSocket();
-
-	protected virtual void ConfigureClientSocket(Socket clientSocket) { }
-
-	protected abstract IConnection CreateConnection(Socket clientSocket);
-
 	protected abstract Task HandleConnectionAsync(IConnection connection);
 
-	protected virtual Task CleanUpAfterStopAsync() { }
-	
+	protected virtual Task CleanupOnCloseAsync() => Task.CompletedTask;
+
 	/// <summary>
 	/// Closes the listening socket during shutdown.
 	/// </summary>

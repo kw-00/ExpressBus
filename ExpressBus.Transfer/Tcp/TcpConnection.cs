@@ -7,7 +7,7 @@ namespace ExpressBus.Transfer.Tcp;
 /// Wraps a connected <see cref="Socket"/> for non-blocking byte-level I/O.
 /// No framing — raw bytes are sent and received as-is.
 /// </summary>
-public sealed class TcpConnection : IConnection
+internal sealed class TcpConnection : IConnection
 {
 	private readonly Socket _socket;
 	private readonly object _lock = new();
