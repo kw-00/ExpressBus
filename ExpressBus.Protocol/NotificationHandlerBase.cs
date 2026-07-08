@@ -63,19 +63,19 @@ public abstract class NotificationHandlerBase
     {
         // Read 1 byte: MessageTypeIdentifier
         var typeBuffer = CreateBuffer(1);
-        await _connection.ReceiveFullAsync(typeBuffer.WritableMemory).ConfigureAwait(false);
+        await _connection.ReceiveFullAsync(typeBuffer.Memory).ConfigureAwait(false);
         var typeByte = typeBuffer.Memory.Span[0];
         typeBuffer.Dispose();
 
         // Read 4 bytes: message size (little-endian int32)
         var sizeBuffer = CreateBuffer(4);
-        await _connection.ReceiveFullAsync(sizeBuffer.WritableMemory).ConfigureAwait(false);
+        await _connection.ReceiveFullAsync(sizeBuffer.Memory).ConfigureAwait(false);
         var messageSize = BinaryPrimitives.ReadInt32LittleEndian(sizeBuffer.Memory.Span);
         sizeBuffer.Dispose();
 
         // Allocate buffer, read payload, deserialize
         var payload = CreateBuffer(messageSize);
-        await _connection.ReceiveFullAsync(payload.WritableMemory).ConfigureAwait(false);
+        await _connection.ReceiveFullAsync(payload.Memory).ConfigureAwait(false);
         var notificationBytes = payload.Memory;
 
         // Dispatch by MessageTypeIdentifier using if/else chain.
@@ -83,7 +83,7 @@ public abstract class NotificationHandlerBase
         // not a compile-time constant from the compiler's perspective, so switch expression
         // cannot guarantee exhaustiveness (CS8509).
         if (typeByte == EventNotification.MessageTypeIdentifier)
-            await HandleEventNotificationAsync(EventNotification.FromBytes(payload.WritableMemory)).ConfigureAwait(false);
+            await HandleEventNotificationAsync(EventNotification.FromBytes(payload.Memory)).ConfigureAwait(false);
         else
             throw new FormatException($"Unknown MessageTypeIdentifier: 0x{typeByte:X2}");
     }

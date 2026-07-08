@@ -1,5 +1,6 @@
 using System.Buffers;
 using System.Buffers.Binary;
+using ExpressBus.Buffering;
 using ExpressBus.Protocol;
 using ExpressBus.Protocol.Bus;
 using ExpressBus.Transfer;
@@ -34,7 +35,7 @@ public sealed class RequestHandler : RequestHandlerBase
 
     /// <inheritdoc />
     protected override DisposableMemory CreateBuffer(int size) =>
-        new DisposableMemory(MemoryPool<byte>.Shared.Rent(size), size);
+        new DisposableMemory(size);
 
     /// <inheritdoc />
     protected override BroadcastResponse HandleBroadcastRequest(BroadcastRequest request)
@@ -45,13 +46,13 @@ public sealed class RequestHandler : RequestHandlerBase
 
         // Serialize notification into a buffer
         var notifOwner = CreateBuffer(notificationSize);
-        notification.ToBytes(notifOwner.WritableMemory);
-        var notifBytes = notifOwner.WritableMemory.Slice(0, notificationSize);
+        notification.ToBytes(notifOwner.Memory);
+        var notifBytes = notifOwner.Memory.Slice(0, notificationSize);
 
         // Build the full wire frame: 1 byte type + 4 bytes size + payload
         var wireSize = 5 + notifBytes.Length;
         var wireOwner = CreateBuffer(wireSize);
-        var wireMem = wireOwner.WritableMemory;
+        var wireMem = wireOwner.Memory;
         wireMem.Span[0] = EventNotification.MessageTypeIdentifier;
         BinaryPrimitives.WriteInt32LittleEndian(wireMem.Span.Slice(1), notifBytes.Length);
         notifBytes.Span.CopyTo(wireMem.Span.Slice(5));

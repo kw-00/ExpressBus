@@ -27,7 +27,7 @@ public sealed class ClientNotificationHandler : NotificationHandlerBase
 
     /// <inheritdoc />
     protected override DisposableMemory CreateBuffer(int size) =>
-        new DisposableMemory(MemoryPool<byte>.Shared.Rent(size), size);
+        new DisposableMemory(size);
 
     /// <inheritdoc />
     protected override Task HandleEventNotificationAsync(EventNotification notification)

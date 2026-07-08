@@ -7,19 +7,6 @@ using ExpressBus.Transfer;
 public class NotificationHandlerBaseTests
 {
 	/// <summary>
-	/// Wraps a byte array so that its <see cref="Memory.Length"/> exactly matches
-	/// the array length — unlike <see cref="MemoryPool{T}.Rent"/> which returns
-	/// a buffer that may be larger than requested.
-	/// </summary>
-	private sealed class ExactMemoryOwner : IMemoryOwner<byte>
-	{
-		private readonly byte[] _buffer;
-		public ExactMemoryOwner(byte[] buffer) => _buffer = buffer;
-		public Memory<byte> Memory => _buffer.AsMemory();
-		public void Dispose() { }
-	}
-
-	/// <summary>
 	/// A fake <see cref="IConnection"/> backed by a byte array.
 	/// </summary>
 	private sealed class FakeConnection : IConnection
@@ -70,7 +57,7 @@ public class NotificationHandlerBaseTests
 			: base(connection) { }
 
 		protected override DisposableMemory CreateBuffer(int size) =>
-			new DisposableMemory(new ExactMemoryOwner(new byte[size]), size);
+			new DisposableMemory(size);
 
 		protected override Task HandleEventNotificationAsync(EventNotification notification)
 		{
