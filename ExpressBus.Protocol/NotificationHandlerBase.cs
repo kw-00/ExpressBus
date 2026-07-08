@@ -42,18 +42,18 @@ public abstract class NotificationHandlerBase
     /// <remarks>
     /// Implement this method to control the memory allocation strategy — for example,
     /// rent from <see cref="MemoryPool{T}.Shared"/> for pooled reuse, or allocate fresh memory.
-    /// The returned <see cref="IMemoryOwner{T}"/> must have <c>Memory.Length</c> exactly
-    /// equal to <paramref name="size"/>; a mismatch is rejected by <see cref="HandleNotificationAsync"/>.
-    /// The base class disposes the returned owner after processing the notification.
+    /// The returned <see cref="DisposableMemory"/> wraps the underlying owner and exposes
+    /// a bounded view of exactly <paramref name="size"/> bytes. The base class disposes
+    /// the returned <see cref="DisposableMemory"/> after processing the notification.
     /// </remarks>
     /// <param name="size">
     /// The exact byte length required for the buffer.
     /// </param>
     /// <returns>
-    /// An <see cref="IMemoryOwner{T}"/> whose <see cref="Memory{T}.Length"/> is exactly
-    /// <paramref name="size"/>.
+    /// A <see cref="DisposableMemory"/> wrapping the allocated buffer, bounded to
+    /// <paramref name="size"/> bytes.
     /// </returns>
-    protected abstract IMemoryOwner<byte> CreateBuffer(int size);
+    protected abstract DisposableMemory CreateBuffer(int size);
 
     /// <summary>
     /// Reads a notification from the associated connection, deserializes it, and dispatches it to the
@@ -63,19 +63,19 @@ public abstract class NotificationHandlerBase
     {
         // Read 1 byte: MessageTypeIdentifier
         var typeBuffer = CreateBuffer(1);
-        await _connection.ReceiveFullAsync(typeBuffer.Memory).ConfigureAwait(false);
+        await _connection.ReceiveFullAsync(typeBuffer.WritableMemory).ConfigureAwait(false);
         var typeByte = typeBuffer.Memory.Span[0];
         typeBuffer.Dispose();
 
         // Read 4 bytes: message size (little-endian int32)
         var sizeBuffer = CreateBuffer(4);
-        await _connection.ReceiveFullAsync(sizeBuffer.Memory).ConfigureAwait(false);
+        await _connection.ReceiveFullAsync(sizeBuffer.WritableMemory).ConfigureAwait(false);
         var messageSize = BinaryPrimitives.ReadInt32LittleEndian(sizeBuffer.Memory.Span);
         sizeBuffer.Dispose();
 
         // Allocate buffer, read payload, deserialize
         var payload = CreateBuffer(messageSize);
-        await _connection.ReceiveFullAsync(payload.Memory).ConfigureAwait(false);
+        await _connection.ReceiveFullAsync(payload.WritableMemory).ConfigureAwait(false);
         var notificationBytes = payload.Memory;
 
         // Dispatch by MessageTypeIdentifier using if/else chain.
@@ -83,7 +83,7 @@ public abstract class NotificationHandlerBase
         // not a compile-time constant from the compiler's perspective, so switch expression
         // cannot guarantee exhaustiveness (CS8509).
         if (typeByte == EventNotification.MessageTypeIdentifier)
-            await HandleEventNotificationAsync(EventNotification.FromBytes(notificationBytes)).ConfigureAwait(false);
+            await HandleEventNotificationAsync(EventNotification.FromBytes(payload.WritableMemory)).ConfigureAwait(false);
         else
             throw new FormatException($"Unknown MessageTypeIdentifier: 0x{typeByte:X2}");
     }

@@ -51,6 +51,13 @@ public readonly struct DisposableMemory : IDisposable
     public ReadOnlyMemory<byte> Memory => _owner.Memory.Slice(0, _size);
 
     /// <summary>
+    /// The underlying writable memory from the owner, suitable for passing to
+    /// methods that need <see cref="Memory{T}"/> (e.g., <c>ReceiveAsync</c>,
+    /// <c>ToBytes</c>, <c>FromBytes</c>).
+    /// </summary>
+    public Memory<byte> WritableMemory => _owner.Memory;
+
+    /// <summary>
     /// Disposes the underlying memory owner, returning the buffer to its pool.
     /// </summary>
     public void Dispose()

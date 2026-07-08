@@ -1,4 +1,5 @@
 using System.Buffers;
+using ExpressBus.Buffering;
 using ExpressBus.Protocol;
 using ExpressBus.Protocol.Bus;
 using ExpressBus.Transfer;
@@ -68,8 +69,8 @@ public class NotificationHandlerBaseTests
 		public TestNotificationHandler(IConnection connection)
 			: base(connection) { }
 
-		protected override IMemoryOwner<byte> CreateBuffer(int size) =>
-			new ExactMemoryOwner(new byte[size]);
+		protected override DisposableMemory CreateBuffer(int size) =>
+			new DisposableMemory(new ExactMemoryOwner(new byte[size]), size);
 
 		protected override Task HandleEventNotificationAsync(EventNotification notification)
 		{

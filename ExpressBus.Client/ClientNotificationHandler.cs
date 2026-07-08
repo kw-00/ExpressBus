@@ -1,4 +1,5 @@
 using System.Buffers;
+using ExpressBus.Buffering;
 using ExpressBus.Protocol;
 using ExpressBus.Protocol.Bus;
 using ExpressBus.Transfer;
@@ -25,8 +26,8 @@ public sealed class ClientNotificationHandler : NotificationHandlerBase
     }
 
     /// <inheritdoc />
-    protected override IMemoryOwner<byte> CreateBuffer(int size) =>
-        MemoryPool<byte>.Shared.Rent(size);
+    protected override DisposableMemory CreateBuffer(int size) =>
+        new DisposableMemory(MemoryPool<byte>.Shared.Rent(size), size);
 
     /// <inheritdoc />
     protected override Task HandleEventNotificationAsync(EventNotification notification)
