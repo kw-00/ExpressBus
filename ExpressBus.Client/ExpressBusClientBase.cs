@@ -1,5 +1,6 @@
 using System.Buffers;
 using System.Collections.Concurrent;
+using System.Threading;
 using ExpressBus.DataStructures;
 using ExpressBus.Protocol;
 using ExpressBus.Protocol.Bus;
@@ -23,7 +24,7 @@ public abstract class ExpressBusClientBase : IAsyncDisposable
     private readonly ClientNotificationHandler _notificationHandler;
     private readonly EventHandlers _eventHandlers;
     private readonly ConcurrentDictionary<ReadOnlyMemory<byte>, int> _topicHandlerCount;
-    private readonly object _lock = new();
+    private readonly SemaphoreSlim _lock = new(1, 1);
     private Task? _notificationLoopTask;
     private bool _disposed;
 
@@ -61,9 +62,10 @@ public abstract class ExpressBusClientBase : IAsyncDisposable
     /// </summary>
     /// <param name="topic">The topic to subscribe to.</param>
     /// <param name="handler">The action to invoke when an event notification is received for this topic.</param>
-    public void Subscribe(ReadOnlyMemory<byte> topic, Action<ReadOnlyMemory<byte>> handler)
+    public async Task SubscribeAsync(ReadOnlyMemory<byte> topic, Action<ReadOnlyMemory<byte>> handler)
     {
-        lock (_lock)
+        await _lock.WaitAsync();
+        try
         {
             _eventHandlers.Set(topic, handler);
 
@@ -74,8 +76,12 @@ public abstract class ExpressBusClientBase : IAsyncDisposable
             if (isNewTopic)
             {
                 var request = new SubscribeRequest(Guid.NewGuid(), new SerializableByteMemory(topic.Length, topic));
-                _requestSender.SendSubscribeRequestAsync(request).GetAwaiter().GetResult();
+                await _requestSender.SendSubscribeRequestAsync(request).ConfigureAwait(false);
             }
+        }
+        finally
+        {
+            _lock.Release();
         }
     }
 
@@ -84,9 +90,10 @@ public abstract class ExpressBusClientBase : IAsyncDisposable
     /// A broker-side unsubscribe is sent only when the last handler is removed.
     /// </summary>
     /// <param name="topic">The topic to unsubscribe from.</param>
-    public void Unsubscribe(ReadOnlyMemory<byte> topic)
+    public async Task UnsubscribeAsync(ReadOnlyMemory<byte> topic)
     {
-        lock (_lock)
+        await _lock.WaitAsync();
+        try
         {
             var handlers = _eventHandlers.GetHandlers(topic);
             foreach (var handler in handlers)
@@ -102,8 +109,12 @@ public abstract class ExpressBusClientBase : IAsyncDisposable
             {
                 _topicHandlerCount.TryRemove(topic, out _);
                 var request = new UnsubscribeRequest(Guid.NewGuid(), new SerializableByteMemory(topic.Length, topic));
-                _requestSender.SendUnsubscribeRequestAsync(request).GetAwaiter().GetResult();
+                await _requestSender.SendUnsubscribeRequestAsync(request).ConfigureAwait(false);
             }
+        }
+        finally
+        {
+            _lock.Release();
         }
     }
 
@@ -112,12 +123,17 @@ public abstract class ExpressBusClientBase : IAsyncDisposable
     /// </summary>
     /// <param name="topic">The topic to broadcast to.</param>
     /// <param name="message">The message payload to broadcast.</param>
-    public void Broadcast(ReadOnlyMemory<byte> topic, ReadOnlyMemory<byte> message)
+    public async Task BroadcastAsync(ReadOnlyMemory<byte> topic, ReadOnlyMemory<byte> message)
     {
-        lock (_lock)
+        await _lock.WaitAsync();
+        try
         {
             var request = new BroadcastRequest(Guid.NewGuid(), new SerializableByteMemory(topic.Length, topic), new SerializableByteMemory(message.Length, message));
-            _requestSender.SendBroadcastRequestAsync(request).GetAwaiter().GetResult();
+            await _requestSender.SendBroadcastRequestAsync(request).ConfigureAwait(false);
+        }
+        finally
+        {
+            _lock.Release();
         }
     }
 
@@ -166,6 +182,10 @@ public abstract class ExpressBusClientBase : IAsyncDisposable
         catch
         {
             // Ignore disposal errors
+        }
+        finally
+        {
+            await ((IAsyncDisposable)_lock).DisposeAsync().ConfigureAwait(false);
         }
     }
 }
