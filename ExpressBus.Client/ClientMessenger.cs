@@ -8,7 +8,7 @@ using ExpressBus.Transfer;
 namespace ExpressBus.Client;
 
 /// <summary>
-/// Concrete implementation of <see cref="IRequestSender"/> over a TCP connection.
+/// Concrete implementation of <see cref="IClientMessenger"/> over a TCP connection.
 /// </summary>
 /// <remarks>
 /// Wraps an <see cref="IConnection"/> to send typed requests and receive typed responses.
@@ -19,12 +19,15 @@ namespace ExpressBus.Client;
 ///   <item><description>Response: <c>[1-byte type][4-byte size LE int32][N-byte payload]</c>.</description></item>
 /// </list>
 /// </remarks>
-public sealed class ClientMessenger : IRequestSender, IAsyncDisposable
+public sealed class ClientMessenger : IClientMessenger, IAsyncDisposable
 {
-    private readonly IConnection _connection;
+    private readonly IConnectionFactory _factory;
+    private readonly Address _address;
     private readonly ConcurrentDictionary<Guid, TaskCompletionSource<ReadOnlyMemory<byte>>> _pendingRequests = new();
     private readonly CancellationTokenSource _listenerCts = new();
     private volatile bool _disposed;
+
+    private IConnection? _connection;
 
     /// <summary>
     /// Invoked when an <see cref="EventNotification"/> arrives from the server.
@@ -32,15 +35,20 @@ public sealed class ClientMessenger : IRequestSender, IAsyncDisposable
     public Func<EventNotification, Task>? Event { get; set; }
 
     /// <summary>
-    /// Creates a <see cref="ClientMessenger"/> over the specified connection.
+    /// Creates a <see cref="ClientMessenger"/> that connects to the specified address.
     /// </summary>
-    /// <param name="connection">The connection to send requests over.</param>
-    public ClientMessenger(IConnection connection)
+    /// <param name="factory">The factory used to create the underlying connection.</param>
+    /// <param name="address">The remote address to connect to.</param>
+    public ClientMessenger(IConnectionFactory factory, Address address)
     {
-        _connection = connection;
-        connection.Closed += OnConnectionClosed;
+        _factory = factory;
+        _address = address;
+        _connection = _factory.CreateConnection(address);
+        _connection!.Closed += OnConnectionClosed;
         Task.Factory.StartNew(() => ResponseListenerAsync(_listenerCts.Token).GetAwaiter().GetResult(), TaskCreationOptions.LongRunning);
     }
+
+    private IConnection Connection => _connection ?? throw new ObjectDisposedException(nameof(ClientMessenger));
 
     /// <inheritdoc />
     public async Task<BroadcastResponse> SendBroadcastRequestAsync(BroadcastRequest request)
@@ -92,7 +100,7 @@ public sealed class ClientMessenger : IRequestSender, IAsyncDisposable
             var payloadSize = request.ByteSize;
             using var payload = new DisposableMemory(payloadSize);
             request.ToBytes(payload.Memory);
-            await _connection.SendAsync(payload.Memory).ConfigureAwait(false);
+            await Connection.SendAsync(payload.Memory).ConfigureAwait(false);
 
             // Wait for background listener to complete the TCS with the raw response bytes
             return await tcs.Task.ConfigureAwait(false);
@@ -113,17 +121,17 @@ public sealed class ClientMessenger : IRequestSender, IAsyncDisposable
             {
                 // Read 1-byte MessageTypeIdentifier
                 using var typeBuffer = new DisposableMemory(1);
-                await _connection.ReceiveFullAsync(typeBuffer.Memory).ConfigureAwait(false);
+                await Connection.ReceiveFullAsync(typeBuffer.Memory).ConfigureAwait(false);
                 var responseType = typeBuffer.Memory.Span[0];
 
                 // Read 4-byte size (LE int32)
                 using var sizeBuffer = new DisposableMemory(4);
-                await _connection.ReceiveFullAsync(sizeBuffer.Memory).ConfigureAwait(false);
+                await Connection.ReceiveFullAsync(sizeBuffer.Memory).ConfigureAwait(false);
                 var responseSize = BinaryPrimitives.ReadInt32LittleEndian(sizeBuffer.Memory.Span);
 
                 // Read payload
                 using var payloadBuffer = new DisposableMemory(responseSize);
-                await _connection.ReceiveFullAsync(payloadBuffer.Memory).ConfigureAwait(false);
+                await Connection.ReceiveFullAsync(payloadBuffer.Memory).ConfigureAwait(false);
                 var payload = payloadBuffer.Memory;
 
                 // Deserialize to extract RequestId, then complete the matching TCS
@@ -199,8 +207,11 @@ public sealed class ClientMessenger : IRequestSender, IAsyncDisposable
             tcs.TrySetCanceled();
         _pendingRequests.Clear();
 
-        _connection.Closed -= OnConnectionClosed;
-
-        await _connection.CloseAsync(CloseMode.Shutdown).ConfigureAwait(false);
+        var connection = _connection;
+        if (connection != null)
+        {
+            connection.Closed -= OnConnectionClosed;
+            await connection.CloseAsync(CloseMode.Shutdown).ConfigureAwait(false);
+        }
     }
 }

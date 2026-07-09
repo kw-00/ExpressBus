@@ -19,8 +19,13 @@ namespace ExpressBus.Protocol;
 /// server, and both sides use the same request/result types and wire format.
 /// </para>
 /// </remarks>
-public interface IRequestSender
+public interface IClientMessenger
 {
+    /// <summary>
+    /// Invoked when an <see cref="EventNotification"/> arrives from the server.
+    /// </summary>
+    Func<EventNotification, Task>? Event { get; set; }
+
     /// <summary>
     /// Sends a broadcast request to the server and returns the response.
     /// </summary>

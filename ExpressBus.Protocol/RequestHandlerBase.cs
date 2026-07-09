@@ -17,7 +17,7 @@ namespace ExpressBus.Protocol;
 /// performed internally.
 /// </para>
 /// <para>
-/// <see cref="IRequestSender"/> (in the same namespace) is the client-side counterpart — it
+/// <see cref="IClientMessenger"/> (in the same namespace) is the client-side counterpart — it
 /// exposes the same set of operations as methods that accept typed requests and return typed
 /// results. <see cref="INotificationSender"/> handles server-to-client fire-and-forget
 /// notifications, while <see cref="NotificationHandlerBase"/> handles incoming notifications on

@@ -18,7 +18,7 @@ namespace ExpressBus.Protocol;
 /// </para>
 /// <para>
 /// This is the client-side counterpart to <see cref="INotificationSender"/>.
-/// While <see cref="IRequestSender"/> / <see cref="RequestHandlerBase"/> handle
+/// While <see cref="IClientMessenger"/> / <see cref="RequestHandlerBase"/> handle
 /// the request/response cycle, <see cref="INotificationSender"/> /
 /// <see cref="NotificationHandlerBase"/> handle the server-to-client push channel.
 /// </para>
