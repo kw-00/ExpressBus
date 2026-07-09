@@ -19,7 +19,7 @@ namespace ExpressBus.Client;
 ///   <item><description>Response: <c>[1-byte type][4-byte size LE int32][N-byte payload]</c>.</description></item>
 /// </list>
 /// </remarks>
-public sealed class RequestSender : IRequestSender, IAsyncDisposable
+public sealed class ClientMessenger : IRequestSender, IAsyncDisposable
 {
     private readonly IConnection _connection;
     private readonly ConcurrentDictionary<Guid, TaskCompletionSource<ReadOnlyMemory<byte>>> _pendingRequests = new();
@@ -27,10 +27,15 @@ public sealed class RequestSender : IRequestSender, IAsyncDisposable
     private volatile bool _disposed;
 
     /// <summary>
-    /// Creates a <see cref="RequestSender"/> over the specified connection.
+    /// Invoked when an <see cref="EventNotification"/> arrives from the server.
+    /// </summary>
+    public Func<EventNotification, Task>? Event { get; set; }
+
+    /// <summary>
+    /// Creates a <see cref="ClientMessenger"/> over the specified connection.
     /// </summary>
     /// <param name="connection">The connection to send requests over.</param>
-    public RequestSender(IConnection connection)
+    public ClientMessenger(IConnection connection)
     {
         _connection = connection;
         connection.Closed += OnConnectionClosed;
@@ -142,6 +147,11 @@ public sealed class RequestSender : IRequestSender, IAsyncDisposable
                 {
                     var msg = UnsubscribeResponse.FromBytes(payload);
                     tcs = _pendingRequests.TryRemove(msg.RequestId, out var found) ? found : null;
+                }
+                else if (responseType == EventNotification.MessageTypeIdentifier)
+                {
+                    var msg = EventNotification.FromBytes(payload);
+                    await (Event?.Invoke(msg) ?? Task.CompletedTask).ConfigureAwait(false);
                 }
                 else
                 {
