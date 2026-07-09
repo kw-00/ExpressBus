@@ -20,8 +20,7 @@ namespace ExpressBus.Protocol;
 /// <see cref="IClientMessenger"/> (in the same namespace) is the client-side counterpart — it
 /// exposes the same set of operations as methods that accept typed requests and return typed
 /// results. <see cref="INotificationSender"/> handles server-to-client fire-and-forget
-/// notifications, while <see cref="NotificationHandlerBase"/> handles incoming notifications on
-/// the client side. Together these types enforce a single, bidirectional protocol.
+/// notifications. Together these types enforce a single, bidirectional protocol.
 /// </para>
 /// </remarks>
 public abstract class RequestHandlerBase
