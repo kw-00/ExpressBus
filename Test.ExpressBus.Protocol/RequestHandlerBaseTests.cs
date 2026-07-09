@@ -16,9 +16,9 @@ public class RequestHandlerBaseTests
 
 		public FakeConnection(byte[] data) => _data = data;
 
-		public Task SendAsync(ReadOnlyMemory<byte> data) => Task.CompletedTask;
+		public Task SendAsync(ReadOnlyMemory<byte> data, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
-		public async Task<int> ReceiveAsync(Memory<byte> buffer)
+		public async Task<int> ReceiveAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
 		{
 			var available = _data.Length - _position;
 			if (available == 0)
@@ -31,12 +31,12 @@ public class RequestHandlerBaseTests
 			return toCopy;
 		}
 
-		public Task<int> ReceiveFullAsync(Memory<byte> buffer)
+		public Task<int> ReceiveFullAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
 		{
 			int totalRead = 0;
 			while (totalRead < buffer.Length)
 			{
-				var bytesRead = ReceiveAsync(buffer.Slice(totalRead)).GetAwaiter().GetResult();
+				var bytesRead = ReceiveAsync(buffer.Slice(totalRead), cancellationToken).GetAwaiter().GetResult();
 				totalRead += bytesRead;
 			}
 			return Task.FromResult(totalRead);
@@ -177,7 +177,7 @@ public class RequestHandlerBaseTests
 		var handler = new TestRequestHandler(connection);
 
 		// Act & Assert
-		var ex = await Assert.ThrowsAsync<FormatException>(handler.HandleRequestAsync);
+		var ex = await Assert.ThrowsAsync<FormatException>(() => handler.HandleRequestAsync());
 		Assert.Contains("0x63", ex.Message);
 	}
 
@@ -189,7 +189,7 @@ public class RequestHandlerBaseTests
 		var handler = new TestRequestHandler(connection);
 
 		// Act & Assert
-		var ex = await Assert.ThrowsAsync<IOException>(handler.HandleRequestAsync);
+		var ex = await Assert.ThrowsAsync<IOException>(() => handler.HandleRequestAsync());
 		Assert.Contains("Connection closed", ex.Message);
 	}
 
@@ -214,7 +214,7 @@ public class RequestHandlerBaseTests
 		var handler = new TestRequestHandler(connection);
 
 		// Act & Assert
-		var ex = await Assert.ThrowsAsync<IOException>(handler.HandleRequestAsync);
+		var ex = await Assert.ThrowsAsync<IOException>(() => handler.HandleRequestAsync());
 		Assert.Contains("Connection closed", ex.Message);
 	}
 }

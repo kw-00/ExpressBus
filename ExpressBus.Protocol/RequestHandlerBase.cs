@@ -37,27 +37,24 @@ public abstract class RequestHandlerBase
     /// Reads a single request from the associated connection, dispatches it to the appropriate handler,
     /// serializes the response, sends it back over the same connection, and disposes all buffers.
     /// </summary>
-    /// <remarks>
-    /// For a looping variant that handles multiple requests until cancellation,
-    /// use <see cref="HandleRequestAsync(CancellationToken)"/>.
-    /// </remarks>
-    public async Task HandleRequestAsync()
+    /// <param name="cancellationToken">Optional cancellation token to abort the I/O operations.</param>
+    public async Task HandleRequestAsync(CancellationToken cancellationToken = default)
     {
         // Read 1 byte: MessageTypeIdentifier
         var typeBuffer = CreateBuffer(1);
-        await Connection.ReceiveFullAsync(typeBuffer.Memory).ConfigureAwait(false);
+        await Connection.ReceiveFullAsync(typeBuffer.Memory, cancellationToken).ConfigureAwait(false);
         var typeByte = typeBuffer.Memory.Span[0];
         typeBuffer.Dispose();
 
         // Read 4 bytes: message size (little-endian int32)
         var sizeBuffer = CreateBuffer(4);
-        await Connection.ReceiveFullAsync(sizeBuffer.Memory).ConfigureAwait(false);
+        await Connection.ReceiveFullAsync(sizeBuffer.Memory, cancellationToken).ConfigureAwait(false);
         var messageSize = BinaryPrimitives.ReadInt32LittleEndian(sizeBuffer.Memory.Span);
         sizeBuffer.Dispose();
 
         // Allocate buffer, read payload, deserialize
         var payload = CreateBuffer(messageSize);
-        await Connection.ReceiveFullAsync(payload.Memory).ConfigureAwait(false);
+        await Connection.ReceiveFullAsync(payload.Memory, cancellationToken).ConfigureAwait(false);
         var requestBytes = payload.Memory;
 
         // Dispatch by MessageTypeIdentifier using if/else chain.
@@ -76,7 +73,7 @@ public abstract class RequestHandlerBase
         else
             throw new FormatException($"Unknown MessageTypeIdentifier: 0x{typeByte:X2}");
 
-        await Connection.SendAsync(response.Memory);
+        await Connection.SendAsync(response.Memory, cancellationToken);
         response.Dispose();
     }
 
@@ -88,11 +85,11 @@ public abstract class RequestHandlerBase
     /// Triggered when the connection closes (via <see cref="IConnection.Closed"/>).
     /// Causes the loop to exit cleanly.
     /// </param>
-    public async Task HandleRequestAsync(CancellationToken cancellationToken)
+    public async Task HandleRequestLoopAsync(CancellationToken cancellationToken)
     {
         while (!cancellationToken.IsCancellationRequested)
         {
-            await HandleRequestAsync().ConfigureAwait(false);
+            await HandleRequestAsync(cancellationToken).ConfigureAwait(false);
         }
     }
     

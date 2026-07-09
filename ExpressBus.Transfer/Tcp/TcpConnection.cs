@@ -59,20 +59,20 @@ internal sealed class TcpConnection : IConnection
 	}
 
 	/// <inheritdoc />
-	public async Task SendAsync(ReadOnlyMemory<byte> data)
+	public async Task SendAsync(ReadOnlyMemory<byte> data, CancellationToken cancellationToken = default)
 	{
 		lock (_lock)
 		{
 			EnsureNotClosed();
 		}
 
-		await _socket.SendAsync(data, SocketFlags.None, CancellationToken.None);
+		await _socket.SendAsync(data, SocketFlags.None, cancellationToken);
 	}
 
 	/// <inheritdoc />
-	public async Task<int> ReceiveAsync(Memory<byte> buffer)
+	public async Task<int> ReceiveAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
 	{
-		var bytesRead = await _socket.ReceiveAsync(buffer, SocketFlags.None);
+		var bytesRead = await _socket.ReceiveAsync(buffer, SocketFlags.None, cancellationToken);
 
 		if (bytesRead == 0)
 		{
@@ -84,12 +84,12 @@ internal sealed class TcpConnection : IConnection
 	}
 
 	/// <inheritdoc />
-	public async Task<int> ReceiveFullAsync(Memory<byte> buffer)
+	public async Task<int> ReceiveFullAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
 	{
 		int totalRead = 0;
 		while (totalRead < buffer.Length)
 		{
-			var bytesRead = await ReceiveAsync(buffer.Slice(totalRead)).ConfigureAwait(false);
+			var bytesRead = await ReceiveAsync(buffer.Slice(totalRead), cancellationToken).ConfigureAwait(false);
 			totalRead += bytesRead;
 		}
 		return totalRead;

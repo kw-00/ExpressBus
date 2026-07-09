@@ -96,7 +96,7 @@ public abstract class ServerBase : IServer
 				{
 					client = await _listeningSocket.AcceptAsync(token);
 					_clientSockets.Add(client);
-					_ = HandleConnectionAsync(_connectionFactory.CreateConnectionFromAcceptedSocket(client));
+					_ = HandleConnectionAsync(_connectionFactory.CreateConnectionFromAcceptedSocket(client), token);
 				}
 				catch (Exception ex)
 				{
@@ -122,7 +122,7 @@ public abstract class ServerBase : IServer
 
 	}
 
-	protected abstract Task HandleConnectionAsync(IConnection connection);
+	protected abstract Task HandleConnectionAsync(IConnection connection, CancellationToken cancellationToken);
 
 	protected virtual Task CleanupOnCloseAsync() => Task.CompletedTask;
 

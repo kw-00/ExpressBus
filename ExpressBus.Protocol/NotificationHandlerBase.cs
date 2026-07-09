@@ -59,23 +59,24 @@ public abstract class NotificationHandlerBase
     /// Reads a notification from the associated connection, deserializes it, and dispatches it to the
     /// appropriate handler. Notifications are fire-and-forget — no response is sent back.
     /// </summary>
-    public async Task HandleNotificationAsync()
+    /// <param name="cancellationToken">Optional cancellation token to abort the receive operations.</param>
+    public async Task HandleNotificationAsync(CancellationToken cancellationToken = default)
     {
         // Read 1 byte: MessageTypeIdentifier
         var typeBuffer = CreateBuffer(1);
-        await _connection.ReceiveFullAsync(typeBuffer.Memory).ConfigureAwait(false);
+        await _connection.ReceiveFullAsync(typeBuffer.Memory, cancellationToken).ConfigureAwait(false);
         var typeByte = typeBuffer.Memory.Span[0];
         typeBuffer.Dispose();
 
         // Read 4 bytes: message size (little-endian int32)
         var sizeBuffer = CreateBuffer(4);
-        await _connection.ReceiveFullAsync(sizeBuffer.Memory).ConfigureAwait(false);
+        await _connection.ReceiveFullAsync(sizeBuffer.Memory, cancellationToken).ConfigureAwait(false);
         var messageSize = BinaryPrimitives.ReadInt32LittleEndian(sizeBuffer.Memory.Span);
         sizeBuffer.Dispose();
 
         // Allocate buffer, read payload, deserialize
         var payload = CreateBuffer(messageSize);
-        await _connection.ReceiveFullAsync(payload.Memory).ConfigureAwait(false);
+        await _connection.ReceiveFullAsync(payload.Memory, cancellationToken).ConfigureAwait(false);
         var notificationBytes = payload.Memory;
 
         // Dispatch by MessageTypeIdentifier using if/else chain.

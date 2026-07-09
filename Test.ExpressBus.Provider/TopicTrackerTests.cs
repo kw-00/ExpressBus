@@ -11,9 +11,9 @@ public class TopicTrackerTests
     private sealed class FakeConnection : IConnection
     {
         private readonly Guid _id = Guid.NewGuid();
-        public Task SendAsync(ReadOnlyMemory<byte> data) => Task.CompletedTask;
-        public Task<int> ReceiveAsync(Memory<byte> buffer) => Task.FromResult(0);
-        public Task<int> ReceiveFullAsync(Memory<byte> buffer) => Task.FromResult(0);
+        public Task SendAsync(ReadOnlyMemory<byte> data, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<int> ReceiveAsync(Memory<byte> buffer, CancellationToken cancellationToken = default) => Task.FromResult(0);
+        public Task<int> ReceiveFullAsync(Memory<byte> buffer, CancellationToken cancellationToken = default) => Task.FromResult(0);
         public Task CloseAsync(CloseMode mode) => Task.CompletedTask;
         public Action<CloseMode>? Closed { get; set; }
         public override int GetHashCode() => _id.GetHashCode();

@@ -16,9 +16,9 @@ public class NotificationHandlerBaseTests
 
 		public FakeConnection(byte[] data) => _data = data;
 
-		public Task SendAsync(ReadOnlyMemory<byte> data) => Task.CompletedTask;
+		public Task SendAsync(ReadOnlyMemory<byte> data, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
-		public async Task<int> ReceiveAsync(Memory<byte> buffer)
+		public async Task<int> ReceiveAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
 		{
 			var available = _data.Length - _position;
 			if (available == 0)
@@ -31,12 +31,12 @@ public class NotificationHandlerBaseTests
 			return toCopy;
 		}
 
-		public Task<int> ReceiveFullAsync(Memory<byte> buffer)
+		public Task<int> ReceiveFullAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
 		{
 			int totalRead = 0;
 			while (totalRead < buffer.Length)
 			{
-				var bytesRead = ReceiveAsync(buffer.Slice(totalRead)).GetAwaiter().GetResult();
+				var bytesRead = ReceiveAsync(buffer.Slice(totalRead), cancellationToken).GetAwaiter().GetResult();
 				totalRead += bytesRead;
 			}
 			return Task.FromResult(totalRead);

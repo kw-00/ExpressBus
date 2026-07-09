@@ -109,7 +109,7 @@ public sealed class ClientMessenger : IClientMessenger, IAsyncDisposable
             var payloadSize = request.ByteSize;
             using var payload = new DisposableMemory(payloadSize);
             request.ToBytes(payload.Memory);
-            await Connection.SendAsync(payload.Memory).ConfigureAwait(false);
+            await Connection.SendAsync(payload.Memory, _listenerCts!.Token).ConfigureAwait(false);
 
             // Wait for background listener to complete the TCS with the raw response bytes
             return await tcs.Task.ConfigureAwait(false);
@@ -130,17 +130,17 @@ public sealed class ClientMessenger : IClientMessenger, IAsyncDisposable
             {
                 // Read 1-byte MessageTypeIdentifier
                 using var typeBuffer = new DisposableMemory(1);
-                await Connection.ReceiveFullAsync(typeBuffer.Memory).ConfigureAwait(false);
+                await Connection.ReceiveFullAsync(typeBuffer.Memory, cancellationToken).ConfigureAwait(false);
                 var responseType = typeBuffer.Memory.Span[0];
 
                 // Read 4-byte size (LE int32)
                 using var sizeBuffer = new DisposableMemory(4);
-                await Connection.ReceiveFullAsync(sizeBuffer.Memory).ConfigureAwait(false);
+                await Connection.ReceiveFullAsync(sizeBuffer.Memory, cancellationToken).ConfigureAwait(false);
                 var responseSize = BinaryPrimitives.ReadInt32LittleEndian(sizeBuffer.Memory.Span);
 
                 // Read payload
                 using var payloadBuffer = new DisposableMemory(responseSize);
-                await Connection.ReceiveFullAsync(payloadBuffer.Memory).ConfigureAwait(false);
+                await Connection.ReceiveFullAsync(payloadBuffer.Memory, cancellationToken).ConfigureAwait(false);
                 var payload = payloadBuffer.Memory;
 
                 // Deserialize to extract RequestId, then complete the matching TCS

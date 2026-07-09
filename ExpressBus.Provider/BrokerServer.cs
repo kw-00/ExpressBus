@@ -32,20 +32,17 @@ public sealed class BrokerServer : ServerBase
 
 
     /// <inheritdoc />
-    protected override async Task HandleConnectionAsync(IConnection connection)
+    protected override async Task HandleConnectionAsync(IConnection connection, CancellationToken cancellationToken)
     {
         var handler = new RequestHandler(connection, _topicTracker, _logger);
-        var cts = new CancellationTokenSource();
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
         // Wire connection close to cancellation
         connection.Closed += mode => cts.Cancel();
 
         try
         {
-            while (!cts.IsCancellationRequested)
-            {
-                await handler.HandleRequestAsync(cts.Token).ConfigureAwait(false);
-            }
+            await handler.HandleRequestLoopAsync(cts.Token).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -66,7 +63,6 @@ public sealed class BrokerServer : ServerBase
             {
                 // Clean up all topic subscriptions for this connection
                 _topicTracker.RemoveSubscriber(connection);
-                cts.Dispose();
             }
 
         }
