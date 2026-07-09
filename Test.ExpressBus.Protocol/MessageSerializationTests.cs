@@ -215,7 +215,7 @@ public class MessageSerializationTests
 
 		// Assert
 		Assert.Equal(original.Count, deserialized.Count);
-		Assert.Equal(original.Data.ToArray(), deserialized.Data.ToArray());
+		Assert.Equal(original.Memory.ToArray(), deserialized.Memory.ToArray());
 	}
 
 	[Fact]
@@ -233,7 +233,7 @@ public class MessageSerializationTests
 
 		// Assert
 		Assert.Equal(original.Count, deserialized.Count);
-		var deserializedInts = MemoryMarshal.Cast<byte, int>(deserialized.Data.ToArray()).ToArray();
+		var deserializedInts = MemoryMarshal.Cast<byte, int>(deserialized.Memory.ToArray()).ToArray();
 		Assert.Equal(data, deserializedInts);
 	}
 
@@ -252,7 +252,7 @@ public class MessageSerializationTests
 
 		// Assert
 		Assert.Equal(original.Count, deserialized.Count);
-		var deserializedLongs = MemoryMarshal.Cast<byte, long>(deserialized.Data.ToArray()).ToArray();
+		var deserializedLongs = MemoryMarshal.Cast<byte, long>(deserialized.Memory.ToArray()).ToArray();
 		Assert.Equal(data, deserializedLongs);
 	}
 
@@ -271,7 +271,7 @@ public class MessageSerializationTests
 
 		// Assert
 		Assert.Equal(original.Count, deserialized.Count);
-		var deserializedBools = MemoryMarshal.Cast<byte, bool>(deserialized.Data.ToArray()).ToArray();
+		var deserializedBools = MemoryMarshal.Cast<byte, bool>(deserialized.Memory.ToArray()).ToArray();
 		Assert.Equal(data, deserializedBools);
 	}
 
@@ -291,7 +291,7 @@ public class MessageSerializationTests
 
 		// Assert
 		Assert.Equal(original.Count, deserialized.Count);
-		var deserializedGuids = MemoryMarshal.Cast<byte, Guid>(deserialized.Data.ToArray()).ToArray();
+		var deserializedGuids = MemoryMarshal.Cast<byte, Guid>(deserialized.Memory.ToArray()).ToArray();
 		Assert.Equal(guid, deserializedGuids[0]);
 	}
 
@@ -331,7 +331,7 @@ public class MessageSerializationTests
 		// Assert
 		Assert.Equal(original.RequestId, deserialized.RequestId);
 		Assert.Equal(original.Topic.Count, deserialized.Topic.Count);
-		Assert.Equal(original.Topic.Data.ToArray(), deserialized.Topic.Data.ToArray());
+		Assert.Equal(original.Topic.Memory.ToArray(), deserialized.Topic.Memory.ToArray());
 	}
 
 	[Fact]
@@ -444,7 +444,7 @@ public class MessageSerializationTests
 		// Assert
 		Assert.Equal(original.RequestId, deserialized.RequestId);
 		Assert.Equal(original.Topic.Count, deserialized.Topic.Count);
-		Assert.Equal(original.Topic.Data.ToArray(), deserialized.Topic.Data.ToArray());
+		Assert.Equal(original.Topic.Memory.ToArray(), deserialized.Topic.Memory.ToArray());
 	}
 
 	[Fact]

@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <ProjectReference Include="..\ExpressBus.Buffering\ExpressBus.Buffering.csproj" />
     <ProjectReference Include="..\ExpressBus.DataStructures\ExpressBus.DataStructures.csproj" />
     <ProjectReference Include="..\ExpressBus.Protocol\ExpressBus.Protocol.csproj" />
   </ItemGroup>

@@ -32,7 +32,7 @@ public sealed class ClientNotificationHandler : NotificationHandlerBase
     /// <inheritdoc />
     protected override Task HandleEventNotificationAsync(EventNotification notification)
     {
-        _eventHandlers.Invoke(notification.Topic.Data, notification.Message.Data);
+        _eventHandlers.Invoke(notification.Topic.Memory, notification.Message.Memory);
         return Task.CompletedTask;
     }
 }

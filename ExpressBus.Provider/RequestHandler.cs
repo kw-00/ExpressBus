@@ -58,7 +58,7 @@ public sealed class RequestHandler : RequestHandlerBase
         notifBytes.Span.CopyTo(wireMem.Span.Slice(5));
 
         // Get subscribers (excluding the sender)
-        var subscribers = _topicTracker.GetSubscribers(request.Topic.Data);
+        var subscribers = _topicTracker.GetSubscribers(request.Topic.Memory);
         subscribers.Remove(Connection);
 
         // Send to all subscribers (best-effort: catch per-subscriber exceptions)
@@ -83,14 +83,14 @@ public sealed class RequestHandler : RequestHandlerBase
     /// <inheritdoc />
     protected override SubscribeResponse HandleSubscribeRequest(SubscribeRequest request)
     {
-        _topicTracker.AddSubscriber(request.Topic.Data, Connection);
+        _topicTracker.AddSubscriber(request.Topic.Memory, Connection);
         return new SubscribeResponse(Status.Success, request.RequestId);
     }
 
     /// <inheritdoc />
     protected override UnsubscribeResponse HandleUnsubscribeRequest(UnsubscribeRequest request)
     {
-        _topicTracker.RemoveSubscriber(request.Topic.Data, Connection);
+        _topicTracker.RemoveSubscriber(request.Topic.Memory, Connection);
         return new UnsubscribeResponse(Status.Success, request.RequestId);
     }
 

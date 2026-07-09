@@ -1,5 +1,5 @@
-using System.Buffers;
 using System.Buffers.Binary;
+using ExpressBus.Buffering;
 using ExpressBus.Protocol;
 using ExpressBus.Protocol.Bus;
 using ExpressBus.Transfer;
@@ -54,32 +54,22 @@ public sealed class RequestSender : IRequestSender
     {
         // Serialize request: ToBytes writes [type byte][field bytes]
         var payloadSize = request.ByteSize;
-        var rentBuffer = MemoryPool<byte>.Shared.Rent(payloadSize);
-        try
-        {
-            request.ToBytes(rentBuffer.Memory.Slice(0, payloadSize));
-            await _connection.SendAsync(rentBuffer.Memory.Slice(0, payloadSize)).ConfigureAwait(false);
+        using var payload = new DisposableMemory(payloadSize);
+        request.ToBytes(payload.Memory);
+        await _connection.SendAsync(payload.Memory).ConfigureAwait(false);
 
-            // Read response: [1-byte type][4-byte size][payload]
-            var typeBuffer = MemoryPool<byte>.Shared.Rent(1);
-            await _connection.ReceiveFullAsync(typeBuffer.Memory).ConfigureAwait(false);
-            typeBuffer.Dispose();
+        // Read response: [1-byte type][4-byte size][payload]
+        using var typeBuffer = new DisposableMemory(1);
+        await _connection.ReceiveFullAsync(typeBuffer.Memory).ConfigureAwait(false);
 
-            var sizeBuffer = MemoryPool<byte>.Shared.Rent(4);
-            await _connection.ReceiveFullAsync(sizeBuffer.Memory).ConfigureAwait(false);
-            var responseSize = BinaryPrimitives.ReadInt32LittleEndian(sizeBuffer.Memory.Span);
-            sizeBuffer.Dispose();
+        using var sizeBuffer = new DisposableMemory(4);
+        await _connection.ReceiveFullAsync(sizeBuffer.Memory).ConfigureAwait(false);
+        var responseSize = BinaryPrimitives.ReadInt32LittleEndian(sizeBuffer.Memory.Span);
 
-            var responseRent = MemoryPool<byte>.Shared.Rent(responseSize);
-            await _connection.ReceiveFullAsync(responseRent.Memory.Slice(0, responseSize)).ConfigureAwait(false);
-            var response = deserializer(responseRent.Memory.Slice(0, responseSize));
-            responseRent.Dispose();
+        using var responseBuffer = new DisposableMemory(responseSize);
+        await _connection.ReceiveFullAsync(responseBuffer.Memory.Slice(0, responseSize)).ConfigureAwait(false);
+        var response = deserializer(responseBuffer.Memory.Slice(0, responseSize));
 
-            return response;
-        }
-        finally
-        {
-            rentBuffer.Dispose();
-        }
+        return response;
     }
 }

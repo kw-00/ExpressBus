@@ -58,8 +58,8 @@ public sealed class SerializableMemoryGenerator : IIncrementalGenerator
 		sb.AppendLine($"\tpublic readonly int Count {{ get; }}");
 		sb.AppendLine();
 
-		// Data property.
-		sb.AppendLine($"\tpublic readonly ReadOnlyMemory<byte> Data {{ get; }}");
+		// Memory property.
+		sb.AppendLine($"\tpublic readonly ReadOnlyMemory<byte> Memory {{ get; }}");
 		sb.AppendLine();
 
 		// Constructor.
@@ -71,7 +71,7 @@ public sealed class SerializableMemoryGenerator : IIncrementalGenerator
 		sb.AppendLine($"\tpublic {config.TypeName}(int count, ReadOnlyMemory<byte> data)");
 		sb.AppendLine("\t{");
 		sb.AppendLine($"\t\tCount = count;");
-		sb.AppendLine("\t\tData = data;");
+		sb.AppendLine("\t\tMemory = data;");
 		sb.AppendLine("\t}");
 		sb.AppendLine();
 
@@ -104,7 +104,7 @@ public sealed class SerializableMemoryGenerator : IIncrementalGenerator
 		sb.AppendLine("\t\tvar writer = new ByteWriter(buffer.Span);");
 		sb.AppendLine("\t\twriter.WriteInt(Count);");
 		sb.AppendLine($"\t\twriter.WriteByte({config.ItemSize});");
-		sb.AppendLine("\t\twriter.WriteBytes(Data.Span);");
+		sb.AppendLine("\t\twriter.WriteBytes(Memory.Span);");
 		sb.AppendLine("\t\treturn buffer;");
 		sb.AppendLine("\t}");
 
