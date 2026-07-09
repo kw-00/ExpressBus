@@ -55,7 +55,7 @@ public sealed class TopicTracker
         _bulkLock.EnterWriteLock();
         try
         {
-            _subscribers.RemoveAll(subscriber);
+            _subscribers.RemoveEverywhere(subscriber);
         }
         finally
         {

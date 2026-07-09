@@ -1,0 +1,54 @@
+
+# 2026-07-09 18:35:08.881392
++N
+
+# 2026-07-09 18:39:17.194376
++Hi
+
+# 2026-07-09 18:40:15.309554
++Examine the codebase.
+
+# 2026-07-09 18:42:19.051126
++/ask
+
+# 2026-07-09 18:42:35.003116
++Tell me about this project
+
+# 2026-07-09 18:43:15.188700
++/add ExpressBus.slnx
+
+# 2026-07-09 18:43:20.876802
++Tell me about this project
+
+# 2026-07-09 18:50:58.994045
++Your tool calling is failing. Can you tell me what the harness instructions/tool call format is?
+
+# 2026-07-09 18:51:13.554734
++Okay. What tools have you got/
+
+# 2026-07-09 20:22:25.193673
++Hi
+
+# 2026-07-09 20:26:46.190683
++ls
+
+# 2026-07-09 20:30:26.422693
++Hi
+
+# 2026-07-09 20:30:48.647218
++/run ls
+
+# 2026-07-09 20:31:31.637797
++/add ExpressBus.slnx /ask Tell me about this project.
+
+# 2026-07-09 20:31:37.326180
++N
+
+# 2026-07-09 20:32:05.955347
++/ask Tell me about this project?
+
+# 2026-07-09 20:35:43.121962
++/ask Please go ahead 
+
+# 2026-07-09 20:38:09.066869
++Find them yourself you numbskull

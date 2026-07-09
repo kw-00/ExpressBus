@@ -27,6 +27,12 @@ public interface IClientMessenger
     Func<EventNotification, Task>? Event { get; set; }
 
     /// <summary>
+    /// Establishes the connection to the server and starts the response listener.
+    /// Must be called before any send methods.
+    /// </summary>
+    Task StartAsync();
+
+    /// <summary>
     /// Sends a broadcast request to the server and returns the response.
     /// </summary>
     Task<BroadcastResponse> SendBroadcastRequestAsync(BroadcastRequest request);

@@ -13,7 +13,7 @@ namespace ExpressBus.DataStructures;
 /// <typeparam name="V">The value type stored within each group.</typeparam>
 /// <remarks>
 /// Operations on a single group acquire a per-partition lock based on the group's hash.
-/// Bulk operations (e.g. <see cref="RemoveAll"/>) acquire a global bulk lock.
+/// Bulk operations (e.g. <see cref="RemoveEverywhere"/>) acquire a global bulk lock.
 /// </remarks>
 public sealed class Grouping<G, V> where G : notnull
 {
@@ -97,8 +97,22 @@ public sealed class Grouping<G, V> where G : notnull
     }
 
     /// <summary>
-    /// Removes the value from all groups it appears in.
+    /// Removes the specified group and all of its values atomically.
     /// </summary>
+    /// <param name="group">The group key to remove entirely.</param>
+    public void RemoveAll(G group)
+    {
+        _locks.AcquireWrite(group);
+        try
+        {
+            _groups.TryRemove(group, out _);
+        }
+        finally
+        {
+            _locks.ReleaseWrite(group);
+        }
+    }
+
     /// <summary>
     /// Removes all groups and their values.
     /// </summary>
@@ -115,7 +129,11 @@ public sealed class Grouping<G, V> where G : notnull
         }
     }
 
-    public void RemoveAll(V value)
+    /// <summary>
+    /// Removes the value from all groups it appears in.
+    /// </summary>
+    /// <param name="value">The value to remove from every group.</param>
+    public void RemoveEverywhere(V value)
     {
         _bulkLock.EnterWriteLock();
         try

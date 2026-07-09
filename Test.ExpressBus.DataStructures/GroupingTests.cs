@@ -135,10 +135,10 @@ public class GroupingTests
 
     #endregion
 
-    #region RemoveAll(value)
+    #region RemoveEverywhere(value)
 
     [Fact]
-    public void RemoveAll_RemovesFromAllGroups()
+    public void RemoveEverywhere_RemovesFromAllGroups()
     {
         var grouping = new Grouping<ReadOnlyMemory<byte>, string>(Comparer, HashFunc);
 
@@ -146,7 +146,7 @@ public class GroupingTests
         grouping.Add(Topic("sports"), "shared");
         grouping.Add(Topic("tech"), "shared");
 
-        grouping.RemoveAll("shared");
+        grouping.RemoveEverywhere("shared");
 
         Assert.Empty(grouping.Get(Topic("news")));
         Assert.Empty(grouping.Get(Topic("sports")));
@@ -154,26 +154,26 @@ public class GroupingTests
     }
 
     [Fact]
-    public void RemoveAll_AutoRemovesEmptyGroups()
+    public void RemoveEverywhere_AutoRemovesEmptyGroups()
     {
         var grouping = new Grouping<ReadOnlyMemory<byte>, string>(Comparer, HashFunc);
 
         grouping.Add(Topic("news"), "shared");
 
-        grouping.RemoveAll("shared");
+        grouping.RemoveEverywhere("shared");
 
         Assert.Empty(grouping.Get(Topic("news")));
     }
 
     [Fact]
-    public void RemoveAll_PreservesOtherValues()
+    public void RemoveEverywhere_PreservesOtherValues()
     {
         var grouping = new Grouping<ReadOnlyMemory<byte>, string>(Comparer, HashFunc);
 
         grouping.Add(Topic("news"), "shared");
         grouping.Add(Topic("news"), "unique");
 
-        grouping.RemoveAll("shared");
+        grouping.RemoveEverywhere("shared");
 
         var handlers = grouping.Get(Topic("news"));
         Assert.Single(handlers);
@@ -181,13 +181,13 @@ public class GroupingTests
     }
 
     [Fact]
-    public void RemoveAll_ValueNotPresent_NoEffect()
+    public void RemoveEverywhere_ValueNotPresent_NoEffect()
     {
         var grouping = new Grouping<ReadOnlyMemory<byte>, string>(Comparer, HashFunc);
 
         grouping.Add(Topic("news"), "handler1");
 
-        grouping.RemoveAll("nonexistent");
+        grouping.RemoveEverywhere("nonexistent");
 
         var handlers = grouping.Get(Topic("news"));
         Assert.Single(handlers);
@@ -300,7 +300,7 @@ public class GroupingTests
     }
 
     [Fact]
-    public async Task ConcurrentRemoveAll_DoesNotThrow()
+    public async Task ConcurrentRemoveEverywhere_DoesNotThrow()
     {
         var grouping = new Grouping<ReadOnlyMemory<byte>, int>(Comparer, HashFunc, partitionCount: 8);
         var exceptions = new List<Exception>();
@@ -312,7 +312,7 @@ public class GroupingTests
             grouping.Add(Topic($"topic-{i % 5}"), i);
         }
 
-        // Concurrent RemoveAll
+        // Concurrent RemoveEverywhere
         for (var i = 0; i < 20; i++)
         {
             var value = i;
@@ -320,7 +320,89 @@ public class GroupingTests
             {
                 try
                 {
-                    grouping.RemoveAll(value);
+                    grouping.RemoveEverywhere(value);
+                }
+                catch (Exception ex)
+                {
+                    lock (exceptions) exceptions.Add(ex);
+                }
+            }));
+        }
+
+        await Task.WhenAll(tasks);
+        Assert.Empty(exceptions);
+    }
+
+    #endregion
+
+    #region RemoveAll(group)
+
+    [Fact]
+    public void RemoveAll_Group_RemovesAllValues()
+    {
+        var grouping = new Grouping<ReadOnlyMemory<byte>, string>(Comparer, HashFunc);
+        var topic = Topic("news");
+
+        grouping.Add(topic, "handler1");
+        grouping.Add(topic, "handler2");
+        grouping.Add(topic, "handler3");
+
+        grouping.RemoveAll(topic);
+
+        Assert.Empty(grouping.Get(topic));
+    }
+
+    [Fact]
+    public void RemoveAll_Group_DoesNotAffectOtherGroups()
+    {
+        var grouping = new Grouping<ReadOnlyMemory<byte>, string>(Comparer, HashFunc);
+
+        grouping.Add(Topic("news"), "handler1");
+        grouping.Add(Topic("sports"), "handler2");
+
+        grouping.RemoveAll(Topic("news"));
+
+        Assert.Empty(grouping.Get(Topic("news")));
+        var sportsHandlers = grouping.Get(Topic("sports"));
+        Assert.Single(sportsHandlers);
+        Assert.Contains("handler2", sportsHandlers);
+    }
+
+    [Fact]
+    public void RemoveAll_NonExistentGroup_NoEffect()
+    {
+        var grouping = new Grouping<ReadOnlyMemory<byte>, string>(Comparer, HashFunc);
+
+        grouping.Add(Topic("news"), "handler1");
+
+        grouping.RemoveAll(Topic("nonexistent"));
+
+        var handlers = grouping.Get(Topic("news"));
+        Assert.Single(handlers);
+    }
+
+    [Fact]
+    public async Task ConcurrentRemoveAllGroup_DoesNotThrow()
+    {
+        var grouping = new Grouping<ReadOnlyMemory<byte>, int>(Comparer, HashFunc, partitionCount: 8);
+        var exceptions = new List<Exception>();
+        var tasks = new List<Task>();
+
+        // Pre-populate
+        for (var i = 0; i < 20; i++)
+        {
+            grouping.Add(Topic($"topic-{i % 5}"), i);
+        }
+
+        // Concurrent RemoveAll on groups
+        for (var i = 0; i < 20; i++)
+        {
+            var topicName = $"topic-{i % 5}";
+            tasks.Add(Task.Run(() =>
+            {
+                try
+                {
+                    grouping.RemoveAll(Topic(topicName));
                 }
                 catch (Exception ex)
                 {

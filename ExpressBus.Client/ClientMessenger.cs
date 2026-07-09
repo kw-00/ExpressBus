@@ -24,10 +24,11 @@ public sealed class ClientMessenger : IClientMessenger, IAsyncDisposable
     private readonly IConnectionFactory _factory;
     private readonly Address _address;
     private readonly ConcurrentDictionary<Guid, TaskCompletionSource<ReadOnlyMemory<byte>>> _pendingRequests = new();
-    private readonly CancellationTokenSource _listenerCts = new();
     private volatile bool _disposed;
 
     private IConnection? _connection;
+    private CancellationTokenSource? _listenerCts;
+    private bool _started;
 
     /// <summary>
     /// Invoked when an <see cref="EventNotification"/> arrives from the server.
@@ -35,7 +36,8 @@ public sealed class ClientMessenger : IClientMessenger, IAsyncDisposable
     public Func<EventNotification, Task>? Event { get; set; }
 
     /// <summary>
-    /// Creates a <see cref="ClientMessenger"/> that connects to the specified address.
+    /// Creates a <see cref="ClientMessenger"/> configured to connect to the specified address.
+    /// Call <see cref="StartAsync"/> to establish the connection.
     /// </summary>
     /// <param name="factory">The factory used to create the underlying connection.</param>
     /// <param name="address">The remote address to connect to.</param>
@@ -43,47 +45,54 @@ public sealed class ClientMessenger : IClientMessenger, IAsyncDisposable
     {
         _factory = factory;
         _address = address;
-        _connection = _factory.CreateConnection(address);
-        _connection!.Closed += OnConnectionClosed;
-        Task.Factory.StartNew(() => ResponseListenerAsync(_listenerCts.Token).GetAwaiter().GetResult(), TaskCreationOptions.LongRunning);
     }
 
-    private IConnection Connection => _connection ?? throw new ObjectDisposedException(nameof(ClientMessenger));
+    private IConnection Connection => _connection ?? throw new InvalidOperationException("ClientMessenger has not been started. Call StartAsync().");
+
+    /// <inheritdoc />
+    public Task StartAsync()
+    {
+        if (_started)
+            return Task.CompletedTask;
+
+        _started = true;
+
+        _connection = _factory.CreateConnection(_address);
+        _connection!.Closed += OnConnectionClosed;
+        _listenerCts = new CancellationTokenSource();
+        Task.Factory.StartNew(() => ResponseListenerAsync(_listenerCts.Token).GetAwaiter().GetResult(), TaskCreationOptions.LongRunning);
+
+        return Task.CompletedTask;
+    }
 
     /// <inheritdoc />
     public async Task<BroadcastResponse> SendBroadcastRequestAsync(BroadcastRequest request)
-    {
-        var requestId = Guid.NewGuid();
-        var raw = await SendRequestAsync(new BroadcastRequest(requestId, request.Topic, request.Message))
-            .ConfigureAwait(false);
-        return BroadcastResponse.FromBytes(raw.ToArray());
-    }
+        => await SendRequestResponseAsync<BroadcastRequest, BroadcastResponse>(
+            id => new BroadcastRequest(id, request.Topic, request.Message)).ConfigureAwait(false);
 
     /// <inheritdoc />
     public async Task<SubscribeResponse> SendSubscribeRequestAsync(SubscribeRequest request)
-    {
-        var requestId = Guid.NewGuid();
-        var raw = await SendRequestAsync(new SubscribeRequest(requestId, request.Topic))
-            .ConfigureAwait(false);
-        return SubscribeResponse.FromBytes(raw.ToArray());
-    }
+        => await SendRequestResponseAsync<SubscribeRequest, SubscribeResponse>(
+            id => new SubscribeRequest(id, request.Topic)).ConfigureAwait(false);
 
     /// <inheritdoc />
     public async Task<UnsubscribeResponse> SendUnsubscribeRequestAsync(UnsubscribeRequest request)
-    {
-        var requestId = Guid.NewGuid();
-        var raw = await SendRequestAsync(new UnsubscribeRequest(requestId, request.Topic))
-            .ConfigureAwait(false);
-        return UnsubscribeResponse.FromBytes(raw.ToArray());
-    }
+        => await SendRequestResponseAsync<UnsubscribeRequest, UnsubscribeResponse>(
+            id => new UnsubscribeRequest(id, request.Topic)).ConfigureAwait(false);
 
     /// <inheritdoc />
     public async Task<UnsubscribeAllResponse> SendUnsubscribeAllRequestAsync(UnsubscribeAllRequest request)
+        => await SendRequestResponseAsync<UnsubscribeAllRequest, UnsubscribeAllResponse>(
+            id => new UnsubscribeAllRequest(id)).ConfigureAwait(false);
+
+    private async Task<TResponse> SendRequestResponseAsync<TRequest, TResponse>(
+        Func<Guid, TRequest> createRequest)
+        where TRequest : struct, IByteSerializable<TRequest>, IMessageSize, IRequestAssociated
+        where TResponse : struct, IByteSerializable<TResponse>
     {
-        var requestId = Guid.NewGuid();
-        var raw = await SendRequestAsync(new UnsubscribeAllRequest(requestId))
-            .ConfigureAwait(false);
-        return UnsubscribeAllResponse.FromBytes(raw.ToArray());
+        var request = createRequest(Guid.NewGuid());
+        var raw = await SendRequestAsync(request).ConfigureAwait(false);
+        return TResponse.FromBytes(raw.ToArray());
     }
 
     private async Task<ReadOnlyMemory<byte>> SendRequestAsync<TRequest>(TRequest request)
@@ -138,23 +147,19 @@ public sealed class ClientMessenger : IClientMessenger, IAsyncDisposable
                 TaskCompletionSource<ReadOnlyMemory<byte>>? tcs = null;
                 if (responseType == BroadcastResponse.MessageTypeIdentifier)
                 {
-                    var msg = BroadcastResponse.FromBytes(payload);
-                    tcs = _pendingRequests.TryRemove(msg.RequestId, out var found) ? found : null;
+                    tcs = TryCompleteRequest<BroadcastResponse>(payload, payload);
                 }
                 else if (responseType == SubscribeResponse.MessageTypeIdentifier)
                 {
-                    var msg = SubscribeResponse.FromBytes(payload);
-                    tcs = _pendingRequests.TryRemove(msg.RequestId, out var found) ? found : null;
+                    tcs = TryCompleteRequest<SubscribeResponse>(payload, payload);
                 }
                 else if (responseType == UnsubscribeAllResponse.MessageTypeIdentifier)
                 {
-                    var msg = UnsubscribeAllResponse.FromBytes(payload);
-                    tcs = _pendingRequests.TryRemove(msg.RequestId, out var found) ? found : null;
+                    tcs = TryCompleteRequest<UnsubscribeAllResponse>(payload, payload);
                 }
                 else if (responseType == UnsubscribeResponse.MessageTypeIdentifier)
                 {
-                    var msg = UnsubscribeResponse.FromBytes(payload);
-                    tcs = _pendingRequests.TryRemove(msg.RequestId, out var found) ? found : null;
+                    tcs = TryCompleteRequest<UnsubscribeResponse>(payload, payload);
                 }
                 else if (responseType == EventNotification.MessageTypeIdentifier)
                 {
@@ -184,9 +189,17 @@ public sealed class ClientMessenger : IClientMessenger, IAsyncDisposable
         }
     }
 
+    private TaskCompletionSource<ReadOnlyMemory<byte>>? TryCompleteRequest<TResponse>(
+        Memory<byte> buffer, ReadOnlyMemory<byte> payload)
+        where TResponse : struct, IByteSerializable<TResponse>, IRequestAssociated
+    {
+        var msg = TResponse.FromBytes(buffer);
+        return _pendingRequests.TryRemove(msg.RequestId, out var found) ? found : null;
+    }
+
     private void OnConnectionClosed(CloseMode mode)
     {
-        _listenerCts.Cancel();
+        _listenerCts?.Cancel();
         foreach (var tcs in _pendingRequests.Values)
             tcs.TrySetException(new IOException("Connection closed"));
         _pendingRequests.Clear();
@@ -200,8 +213,8 @@ public sealed class ClientMessenger : IClientMessenger, IAsyncDisposable
 
         _disposed = true;
 
-        _listenerCts.Cancel();
-        _listenerCts.Dispose();
+        _listenerCts?.Cancel();
+        _listenerCts?.Dispose();
 
         foreach (var tcs in _pendingRequests.Values)
             tcs.TrySetCanceled();
