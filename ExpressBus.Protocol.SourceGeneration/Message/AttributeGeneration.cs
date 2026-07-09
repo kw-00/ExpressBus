@@ -10,7 +10,7 @@ namespace ExpressBus.Protocol.SourceGeneration.Message;
 /// <list type="bullet">
 ///   <item><description><c>[Message]</c> — triggers base message struct generation.</description></item>
 ///   <item><description><c>[GenerateSerialization]</c> — triggers serialization code generation.</description></item>
-///   <item><description><c>[GenerateSerializedField]</c> — declares fields for serialization.</description></item>
+///   <item><description><c>[GenerateSerializedProp]</c> — declares properties for serialization.</description></item>
 /// </list>
 /// </remarks>
 internal static class AttributeGeneration
@@ -37,7 +37,7 @@ internal static class AttributeGeneration
 		sb.AppendLine();
 		sb.AppendLine(GenerateGenerateSerializationAttribute());
 		sb.AppendLine();
-		sb.AppendLine(GenerateGenerateSerializedFieldAttribute());
+		sb.AppendLine(GenerateGenerateSerializedPropAttribute());
 		return sb.ToString();
 	}
 
@@ -91,30 +91,30 @@ internal static class AttributeGeneration
 			""";
 	}
 
-	private static string GenerateGenerateSerializedFieldAttribute()
+	private static string GenerateGenerateSerializedPropAttribute()
 	{
 		return """
 			/// <summary>
-			/// Marks a field for source-generated binary serialization.
+			/// Marks a property for source-generated binary serialization.
 			/// </summary>
 			/// <remarks>
 			/// Must be applied to a struct that also has <c>[GenerateSerialization]</c> attribute.
-			/// The field type must be a primitive (<c>byte</c>, <c>bool</c>, <c>short</c>,
+			/// The property type must be a primitive (<c>byte</c>, <c>bool</c>, <c>short</c>,
 			/// <c>int</c>, <c>long</c>, <c>float</c>, <c>double</c>, <c>Guid</c>), or an
 			/// enum whose underlying type is one of the above.
 			/// </remarks>
-			/// <param name="name">The field name as it will appear in the generated struct.</param>
+			/// <param name="name">The property name as it will appear in the generated struct.</param>
 			/// <param name="type">The serialized type (must be a primitive, Guid, or enum thereof).</param>
 			[System.AttributeUsage(System.AttributeTargets.Struct, Inherited = false, AllowMultiple = true)]
-			public sealed class GenerateSerializedFieldAttribute(string name, System.Type type) : System.Attribute
+			public sealed class GenerateSerializedPropAttribute(string name, System.Type type) : System.Attribute
 			{
 				/// <summary>
-				/// Gets the field name.
+				/// Gets the property name.
 				/// </summary>
 				public string Name { get; } = name;
 
 				/// <summary>
-				/// Gets the serialized type of the field.
+				/// Gets the serialized type of the property.
 				/// </summary>
 				public System.Type Type { get; } = type;
 			}

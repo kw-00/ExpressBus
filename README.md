@@ -63,9 +63,9 @@ using ExpressBus.Protocol.Bus;
 
 [Message(MessageType.Request)]
 [GenerateSerialization(MessageType.Request)]
-[GenerateSerializedField("RequestId", typeof(Guid))]
-[GenerateSerializedField("Topic", typeof(SerializableByteMemory))]
-[GenerateSerializedField("Message", typeof(SerializableByteMemory))]
+[GenerateSerializedProp("RequestId", typeof(Guid))]
+[GenerateSerializedProp("Topic", typeof(SerializableByteMemory))]
+[GenerateSerializedProp("Message", typeof(SerializableByteMemory))]
 public readonly partial struct MyCustomRequest : IMessage;
 ```
 

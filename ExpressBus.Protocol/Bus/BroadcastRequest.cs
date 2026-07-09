@@ -5,9 +5,9 @@ namespace ExpressBus.Protocol.Bus;
 /// </summary>
 [Message]
 [GenerateSerialization(MessageType.Request)]
-[GenerateSerializedField("RequestId", typeof(Guid))]
-[GenerateSerializedField("Topic", typeof(SerializableByteMemory))]
-[GenerateSerializedField("Message", typeof(SerializableByteMemory))]
-public readonly partial struct BroadcastRequest
+[GenerateSerializedProp("RequestId", typeof(Guid))]
+[GenerateSerializedProp("Topic", typeof(SerializableByteMemory))]
+[GenerateSerializedProp("Message", typeof(SerializableByteMemory))]
+public readonly partial struct BroadcastRequest : IRequestAssociated
 {
 }

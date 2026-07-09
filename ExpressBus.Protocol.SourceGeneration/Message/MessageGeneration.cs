@@ -45,7 +45,7 @@ internal static class MessageGeneration
 		bool isSerializationType)
 	{
 		var semanticModel = compilation.GetSemanticModel(symbol.Declaration.SyntaxTree);
-		var fields = SerializedFieldResolver.ParseSerializedFieldAttributes(symbol, semanticModel).ToList();
+		var props = SerializedPropResolver.ParseSerializedPropAttributes(symbol, semanticModel).ToList();
 		var namespaceName = symbol.Symbol.ContainingNamespace.ToDisplayString();
 		var typeName = symbol.Symbol.Name;
 
@@ -96,22 +96,22 @@ internal static class MessageGeneration
 	private static void GenerateConstructor(
 		StringBuilder sb,
 		string typeName,
-		IReadOnlyList<MessageFieldInfo> fields)
+		IReadOnlyList<MessagePropInfo> props)
 	{
 		sb.AppendLine();
-		var params_ = fields.Select(f =>
+		var params_ = props.Select(p =>
 		{
-			var paramType = f.EnumType ?? f.UnderlyingType.CSharpTypeName();
-			return $"{paramType} {ToCamelCase(f.Name)}";
+			var paramType = p.EnumType ?? p.UnderlyingType.CSharpTypeName();
+			return $"{paramType} {ToCamelCase(p.Name)}";
 		});
 		sb.AppendLine($"\tpublic {typeName}({string.Join(", ", params_)})");
 		sb.AppendLine("\t{");
-		foreach (var field in fields)
+		foreach (var prop in props)
 		{
-			var assignment = field.EnumType is not null
-				? $"({field.EnumType}){ToCamelCase(field.Name)}"
-				: ToCamelCase(field.Name);
-			sb.AppendLine($"\t\t{field.Name} = {assignment};");
+			var assignment = prop.EnumType is not null
+				? $"({prop.EnumType}){ToCamelCase(prop.Name)}"
+				: ToCamelCase(prop.Name);
+			sb.AppendLine($"\t\t{prop.Name} = {assignment};");
 		}
 		sb.AppendLine("\t}");
 	}
@@ -119,7 +119,7 @@ internal static class MessageGeneration
 	private static void GenerateFromBytesMethod(
 		StringBuilder sb,
 		string typeName,
-		IReadOnlyList<MessageFieldInfo> fields)
+		IReadOnlyList<MessagePropInfo> props)
 	{
 		sb.AppendLine();
 		sb.AppendLine($"\tpublic static {typeName} FromBytes(Memory<byte> buffer)");
@@ -128,24 +128,24 @@ internal static class MessageGeneration
 		sb.AppendLine("\t\tvar reader = new ByteReader(buffer.Span.Slice(1));");
 		sb.AppendLine();
 
-		foreach (var field in fields)
+		foreach (var prop in props)
 		{
-			var readMethod = field.UnderlyingType.ReadMethodName();
-			var paramName = ToCamelCase(field.Name);
-			var varType = field.EnumType ?? field.UnderlyingType.CSharpTypeName();
-			var cast = field.EnumType is not null ? $"({varType})" : "";
+			var readMethod = prop.UnderlyingType.ReadMethodName();
+			var paramName = ToCamelCase(prop.Name);
+			var varType = prop.EnumType ?? prop.UnderlyingType.CSharpTypeName();
+			var cast = prop.EnumType is not null ? $"({varType})" : "";
 			sb.AppendLine($"\t\t{varType} {paramName} = {cast}reader.{readMethod}();");
 		}
 
 		sb.AppendLine();
-		sb.AppendLine($"\t\treturn new {typeName}({string.Join(", ", fields.Select(f => ToCamelCase(f.Name)))});");
+		sb.AppendLine($"\t\treturn new {typeName}({string.Join(", ", props.Select(p => ToCamelCase(p.Name)))});");
 		sb.AppendLine("\t}");
 	}
 
 	private static void GenerateToBytesMethod(
 		StringBuilder sb,
 		string typeName,
-		IReadOnlyList<MessageFieldInfo> fields)
+		IReadOnlyList<MessagePropInfo> props)
 	{
 		sb.AppendLine();
 		sb.AppendLine($"\tpublic ReadOnlyMemory<byte> ToBytes(Memory<byte> buffer)");
@@ -155,13 +155,13 @@ internal static class MessageGeneration
 		sb.AppendLine("\t\twriter.WriteByte(MessageTypeIdentifier);");
 		sb.AppendLine();
 
-		foreach (var field in fields)
+		foreach (var prop in props)
 		{
-			var writeMethod = field.UnderlyingType.WriteMethodName();
-			string cast = field.EnumType is not null
-				? $"({field.UnderlyingType.CSharpTypeName()})"
+			var writeMethod = prop.UnderlyingType.WriteMethodName();
+			string cast = prop.EnumType is not null
+				? $"({prop.UnderlyingType.CSharpTypeName()})"
 				: "";
-			sb.AppendLine($"\t\twriter.{writeMethod}({cast}{field.Name});");
+			sb.AppendLine($"\t\twriter.{writeMethod}({cast}{prop.Name});");
 		}
 
 		sb.AppendLine();

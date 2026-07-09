@@ -5,8 +5,8 @@ namespace ExpressBus.Protocol.Bus;
 /// </summary>
 [Message]
 [GenerateSerialization(MessageType.Notification)]
-[GenerateSerializedField("Topic", typeof(SerializableByteMemory))]
-[GenerateSerializedField("Message", typeof(SerializableByteMemory))]
+[GenerateSerializedProp("Topic", typeof(SerializableByteMemory))]
+[GenerateSerializedProp("Message", typeof(SerializableByteMemory))]
 public readonly partial struct EventNotification
 {
 }

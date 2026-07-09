@@ -2,17 +2,17 @@ namespace ExpressBus.Protocol.SourcegenTesting;
 
 [Message(MessageType.Test)]
 [GenerateSerialization(MessageType.Test)]
-[GenerateSerializedField("Id", typeof(byte))]
-[GenerateSerializedField("Sequence", typeof(int))]
-[GenerateSerializedField("CorrelationId", typeof(Guid))]
+[GenerateSerializedProp("Id", typeof(byte))]
+[GenerateSerializedProp("Sequence", typeof(int))]
+[GenerateSerializedProp("CorrelationId", typeof(Guid))]
 public readonly partial struct TestMessage
 {
 }
 
 [Message(MessageType.Test)]
 [GenerateSerialization(MessageType.Test)]
-[GenerateSerializedField("Value", typeof(short))]
-[GenerateSerializedField("Ratio", typeof(double))]
+[GenerateSerializedProp("Value", typeof(short))]
+[GenerateSerializedProp("Ratio", typeof(double))]
 public readonly partial struct SimpleMessage
 {
 }
@@ -25,24 +25,24 @@ public readonly partial struct EmptyMessage
 
 [Message(MessageType.Test)]
 [GenerateSerialization(MessageType.Test)]
-[GenerateSerializedField("Priority", typeof(Priority))]
-[GenerateSerializedField("Sequence", typeof(int))]
+[GenerateSerializedProp("Priority", typeof(Priority))]
+[GenerateSerializedProp("Sequence", typeof(int))]
 public readonly partial struct ByteEnumMessage
 {
 }
 
 [Message(MessageType.Test)]
 [GenerateSerialization(MessageType.Test)]
-[GenerateSerializedField("Status", typeof(Status))]
-[GenerateSerializedField("Timestamp", typeof(long))]
+[GenerateSerializedProp("Status", typeof(Status))]
+[GenerateSerializedProp("Timestamp", typeof(long))]
 public readonly partial struct IntEnumMessage
 {
 }
 
 [Message(MessageType.Test)]
 [GenerateSerialization(MessageType.Test)]
-[GenerateSerializedField("Operation", typeof(Operation))]
-[GenerateSerializedField("Id", typeof(byte))]
+[GenerateSerializedProp("Operation", typeof(Operation))]
+[GenerateSerializedProp("Id", typeof(byte))]
 public readonly partial struct LongEnumMessage
 {
 }

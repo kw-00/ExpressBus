@@ -5,7 +5,7 @@ namespace ExpressBus.Protocol.Bus;
 /// </summary>
 [Message]
 [GenerateSerialization(MessageType.Request)]
-[GenerateSerializedField("RequestId", typeof(Guid))]
-public readonly partial struct UnsubscribeAllRequest
+[GenerateSerializedProp("RequestId", typeof(Guid))]
+public readonly partial struct UnsubscribeAllRequest : IRequestAssociated
 {
 }

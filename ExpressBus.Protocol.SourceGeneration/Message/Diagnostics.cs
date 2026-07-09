@@ -36,13 +36,13 @@ internal static class Diagnostics
 
 	/// <summary>
 	/// Message structs must not contain any user-declared fields.
-	/// Fields are declared via <c>[GenerateSerializedField]</c> attributes only.
+	/// Properties are declared via <c>[GenerateSerializedProp]</c> attributes only.
 	/// </summary>
 	public static readonly DiagnosticDescriptor FieldDeclarationNotSupported = new(
 		id: "DLMSG003",
 		title: "Message struct must not declare fields",
 		messageFormat: "Message type '{0}' must not contain field declarations; " +
-			"use [GenerateSerializedField] attributes to define fields",
+			"use [GenerateSerializedProp] attributes to define properties",
 		category: "ExpressBus.Protocol.SourceGeneration",
 		defaultSeverity: DiagnosticSeverity.Error,
 		isEnabledByDefault: true);
@@ -61,13 +61,13 @@ internal static class Diagnostics
 		isEnabledByDefault: true);
 
 	/// <summary>
-	/// A <c>[GenerateSerializedField]</c> attribute references an unsupported type for binary
+	/// A <c>[GenerateSerializedProp]</c> attribute references an unsupported type for binary
 	/// serialization (byte, bool, short, int, long, float, double, Guid, or enums thereof).
 	/// </summary>
 	public static readonly DiagnosticDescriptor UnsupportedFieldType = new(
 		id: "DLMSG005",
-		title: "Serialized field has unsupported type",
-		messageFormat: "[GenerateSerializedField] '{0}' in message type '{1}' has unsupported type '{2}'",
+		title: "Serialized prop has unsupported type",
+		messageFormat: "[GenerateSerializedProp] '{0}' in message type '{1}' has unsupported type '{2}'",
 		category: "ExpressBus.Protocol.SourceGeneration",
 		defaultSeverity: DiagnosticSeverity.Error,
 		isEnabledByDefault: true);

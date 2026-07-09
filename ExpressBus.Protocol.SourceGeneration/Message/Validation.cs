@@ -19,12 +19,12 @@ internal sealed record ValidationResult(
 /// Validation rules:
 /// <list type="bullet">
 ///   <item><description>All message types: must be partial struct.</description></item>
-///   <item><description>[GenerateSerialization] types: must not have user-defined members; field types must be valid.</description></item>
+///   <item><description>[GenerateSerialization] types: must not have user-defined members; prop types must be valid.</description></item>
 ///   <item><description>[Message] only: user-defined members are allowed.</description></item>
 /// </list>
 /// <para>
 /// Attribute dependency chain — [GenerateSerialization] requires [Message], and
-/// [GenerateSerializedField] requires [GenerateSerialization] — is documented on the
+/// [GenerateSerializedProp] requires [GenerateSerialization] — is documented on the
 /// attribute classes themselves and is not enforced via diagnostics.
 /// </para>
 /// </remarks>
@@ -122,26 +122,26 @@ internal static class Validation
 		{
 			if (ValidateBasicStructure(symbol, compilation, ctx, allowMembers: false))
 			{
-				// Validate field types.
+				// Validate prop types.
 				var semanticModel = compilation.GetSemanticModel(symbol.Declaration.SyntaxTree);
-				var fields = SerializedFieldResolver.ParseSerializedFieldAttributes(symbol, semanticModel);
-				var fieldTypesValid = true;
-				foreach (var field in fields)
+				var props = SerializedPropResolver.ParseSerializedPropAttributes(symbol, semanticModel);
+				var propTypesValid = true;
+				foreach (var prop in props)
 				{
-					if (field.UnderlyingType == AllowedType.Invalid)
+					if (prop.UnderlyingType == AllowedType.Invalid)
 					{
-						var loc = field.DefiningAttributeSyntax.GetLocation();
+						var loc = prop.DefiningAttributeSyntax.GetLocation();
 						ctx.ReportDiagnostic(Diagnostic.Create(
 							Diagnostics.UnsupportedFieldType,
 							loc ?? symbol.Symbol.Locations[0],
-							field.Name,
+							prop.Name,
 							symbol.Symbol.Name,
 							"Unknown"));
-						fieldTypesValid = false;
+						propTypesValid = false;
 					}
 				}
 
-				if (fieldTypesValid)
+				if (propTypesValid)
 					valid.Add(symbol);
 			}
 		}
