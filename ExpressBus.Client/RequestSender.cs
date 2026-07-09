@@ -27,14 +27,13 @@ public sealed class RequestSender : IRequestSender, IAsyncDisposable
     private volatile bool _disposed;
 
     /// <summary>
-    /// Creates a <see cref="RequestSender"/> that connects to the specified address.
+    /// Creates a <see cref="RequestSender"/> over the specified connection.
     /// </summary>
-    /// <param name="connectionFactory">Factory used to create the outbound connection.</param>
-    /// <param name="address">Remote address to connect to.</param>
-    public RequestSender(IConnectionFactory connectionFactory, Address address)
+    /// <param name="connection">The connection to send requests over.</param>
+    public RequestSender(IConnection connection)
     {
-        _connection = connectionFactory.CreateConnection(address);
-        _connection.Closed += OnConnectionClosed;
+        _connection = connection;
+        connection.Closed += OnConnectionClosed;
         Task.Factory.StartNew(() => ResponseListenerAsync(_listenerCts.Token).GetAwaiter().GetResult(), TaskCreationOptions.LongRunning);
     }
 
