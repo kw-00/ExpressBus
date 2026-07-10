@@ -1,3 +1,7 @@
+using System.Buffers.Binary;
+using ExpressBus.Buffering;
+using ExpressBus.Protocol;
+using ExpressBus.Protocol.Bus;
 using ExpressBus.Transfer;
 using ExpressBus.Transfer.Tcp;
 
@@ -8,7 +12,7 @@ namespace ExpressBus.Provider;
 /// </summary>
 /// <remarks>
 /// Each accepted connection runs a loop that reads requests, dispatches them via
-/// <see cref="RequestHandler"/>, and sends responses back over the same connection.
+/// internal helper methods, and sends responses back over the same connection.
 /// The loop exits when the connection closes — signalled via <see cref="IConnection.Closed"/>,
 /// which triggers a <see cref="CancellationTokenSource"/> that cancels the loop.
 /// On connection exit, the client is removed from all tracked topics.
@@ -30,19 +34,16 @@ public sealed class BrokerServer : ServerBase
         _logger = logger;
     }
 
-
     /// <inheritdoc />
     protected override async Task HandleConnectionAsync(IConnection connection, CancellationToken cancellationToken)
     {
-        var handler = new RequestHandler(connection, _topicTracker, _logger);
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-
-        // Wire connection close to cancellation
         connection.Closed += mode => cts.Cancel();
 
         try
         {
-            await handler.HandleRequestLoopAsync(cts.Token).ConfigureAwait(false);
+            var handler = new ConnectionHandling(connection, _topicTracker, _logger);
+            await handler.HandleConnectionRequestsAsync(cts.Token).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -50,7 +51,6 @@ public sealed class BrokerServer : ServerBase
         }
         finally
         {
-            // Close the connection gracefully
             try
             {
                 await connection.CloseAsync(CloseMode.Shutdown).ConfigureAwait(false);
@@ -61,10 +61,8 @@ public sealed class BrokerServer : ServerBase
             }
             finally
             {
-                // Clean up all topic subscriptions for this connection
                 _topicTracker.RemoveSubscriber(connection);
             }
-
         }
     }
 
@@ -74,4 +72,5 @@ public sealed class BrokerServer : ServerBase
         _topicTracker.ClearAll();
         return Task.CompletedTask;
     }
+
 }

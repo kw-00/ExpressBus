@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ExpressBus.Protocol\ExpressBus.Protocol.csproj" />
+    <ProjectReference Include="..\ExpressBus.Provider\ExpressBus.Provider.csproj" />
   </ItemGroup>
 
 </Project>
