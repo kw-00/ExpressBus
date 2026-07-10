@@ -71,4 +71,16 @@ internal static class Diagnostics
 		category: "ExpressBus.Protocol.SourceGeneration",
 		defaultSeverity: DiagnosticSeverity.Error,
 		isEnabledByDefault: true);
+
+	/// <summary>
+	/// The <c>ExpressBus.Buffering</c> project is not referenced, but is required
+	/// because the generated code uses <c>ByteTools</c>, <c>ByteReader</c>, and <c>ByteWriter</c>.
+	/// </summary>
+	public static readonly DiagnosticDescriptor MissingBufferingDependency = new(
+		id: "DLMSG006",
+		title: "Missing ExpressBus.Buffering dependency",
+		messageFormat: "The ExpressBus.Buffering project is required for message source generation but is not referenced. Add a reference to ExpressBus.Buffering.",
+		category: "ExpressBus.Protocol.SourceGeneration",
+		defaultSeverity: DiagnosticSeverity.Error,
+		isEnabledByDefault: true);
 }

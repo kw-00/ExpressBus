@@ -62,6 +62,16 @@ public sealed class MessageGenerator : IIncrementalGenerator
 			var compilation = pair.Left;
 			var symbols = pair.Right;
 
+			// Guard: ExpressBus.Buffering must be referenced (ByteTools, ByteReader, ByteWriter are used in generated code).
+			var bufferingAvailable = compilation.GetTypeByMetadataName("ExpressBus.Buffering.ByteTools") != null;
+			if (!bufferingAvailable && symbols.Length > 0)
+			{
+				ctx.ReportDiagnostic(Diagnostic.Create(
+					Diagnostics.MissingBufferingDependency,
+					symbols[0].Symbol.Locations[0]));
+				return;
+			}
+
 			// Validate all collected types.
 			var result = Validation.Validate(symbols, compilation, ctx);
 
