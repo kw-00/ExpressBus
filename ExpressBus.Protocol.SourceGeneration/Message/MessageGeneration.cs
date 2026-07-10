@@ -1,4 +1,5 @@
 using Microsoft.CodeAnalysis;
+using System.Buffers.Binary;
 using System.Text;
 
 namespace ExpressBus.Protocol.SourceGeneration.Message;
@@ -25,6 +26,7 @@ internal static class MessageGeneration
 	[
 		"global using global::System;",
 		"global using global::System.Buffers;",
+		"global using global::System.Buffers.Binary;",
 		"global using global::ExpressBus.Protocol;",
 		"global using global::ExpressBus.Buffering;",
 	];
@@ -66,12 +68,13 @@ internal static class MessageGeneration
 			// MessageTypeIdentifier — static for type-level dispatch.
 			sb.AppendLine($"\tpublic static byte MessageTypeIdentifier => {identifier};");
 
-			// ByteSize — 1 byte MessageTypeIdentifier, no additional fields.
-			sb.AppendLine("\tpublic int ByteSize => 1;");
+			// ByteSize — 1 byte MessageTypeIdentifier + 4 bytes message size + property data.
+			var constantPropSize = ComputeConstantPropSize(props);
+			sb.AppendLine($"\tpublic int ByteSize => 5 + {constantPropSize};");
 
-			GenerateConstructor(sb, typeName, []);
-			GenerateFromBytesMethod(sb, typeName, []);
-			GenerateToBytesMethod(sb, typeName, []);
+			GenerateConstructor(sb, typeName, props);
+			GenerateFromBytesMethod(sb, typeName, props);
+			GenerateToBytesMethod(sb, typeName, props);
 
 			sb.AppendLine("\t}");
 		}
@@ -124,8 +127,22 @@ internal static class MessageGeneration
 		sb.AppendLine();
 		sb.AppendLine($"\tpublic static {typeName} FromBytes(Memory<byte> buffer)");
 		sb.AppendLine("\t{");
-		sb.AppendLine($"\t\tByteTools.EnsureLength(buffer.Span, default({typeName}).ByteSize);");
-		sb.AppendLine("\t\tvar reader = new ByteReader(buffer.Span.Slice(1));");
+
+		// Ensure buffer has at least 5 bytes for the frame (type ID + message size).
+		sb.AppendLine("\t\tByteTools.EnsureLength(buffer.Span, 5, null);");
+
+		// Read and validate the type identifier.
+		sb.AppendLine("\t\tif (buffer.Span[0] != MessageTypeIdentifier)");
+		sb.AppendLine("\t\t\tthrow new FormatException($\"Unexpected MessageTypeIdentifier: 0x{buffer.Span[0]:X2}. Expected 0x{MessageTypeIdentifier:X2}.\");");
+
+		// Read the message size from the next 4 bytes.
+		sb.AppendLine("\t\tvar messageSize = BinaryPrimitives.ReadInt32LittleEndian(buffer.Span.Slice(1));");
+
+		// Ensure the buffer has enough bytes for the full message.
+		sb.AppendLine("\t\tByteTools.EnsureLength(buffer.Span, messageSize, null);");
+
+		// Read properties starting after the 5-byte frame.
+		sb.AppendLine("\t\tvar reader = new ByteReader(buffer.Span.Slice(5));");
 		sb.AppendLine();
 
 		foreach (var prop in props)
@@ -150,9 +167,14 @@ internal static class MessageGeneration
 		sb.AppendLine();
 		sb.AppendLine($"\tpublic ReadOnlyMemory<byte> ToBytes(Memory<byte> buffer)");
 		sb.AppendLine("\t{");
-		sb.AppendLine($"\t\tByteTools.EnsureLength(buffer.Span, default({typeName}).ByteSize);");
+
+		// Use this.ByteSize for the buffer check (instance-aware, not default).
+		sb.AppendLine("\t\tByteTools.EnsureLength(buffer.Span, this.ByteSize);");
 		sb.AppendLine("\t\tvar writer = new ByteWriter(buffer.Span);");
+
+		// Write the frame: type identifier + message size.
 		sb.AppendLine("\t\twriter.WriteByte(MessageTypeIdentifier);");
+		sb.AppendLine("\t\twriter.WriteInt(this.ByteSize);");
 		sb.AppendLine();
 
 		foreach (var prop in props)
@@ -168,6 +190,12 @@ internal static class MessageGeneration
 		sb.AppendLine("\t\treturn buffer;");
 		sb.AppendLine("\t}");
 	}
+
+	/// <summary>
+	/// Computes the total byte size of all properties (excluding the 5-byte frame).
+	/// </summary>
+	private static int ComputeConstantPropSize(IReadOnlyList<MessagePropInfo> props) =>
+		props.Sum(p => p.UnderlyingType.ByteSize());
 
 	private static string ToCamelCase(string name) =>
 		char.ToLowerInvariant(name[0]) + name.Substring(1);
