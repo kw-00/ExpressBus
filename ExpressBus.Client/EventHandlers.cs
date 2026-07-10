@@ -8,19 +8,19 @@ namespace ExpressBus.Client;
 /// </summary>
 /// <remarks>
 /// Topics are keyed by <see cref="ReadOnlyMemory{T}"/> contents and each topic maps to a
-/// collection of <see cref="Action{T}"/> handlers that receive the notification payload.
+/// collection of async <see cref="Func{T, Task}"/> handlers that receive the notification payload.
 /// Uses partitioned locking to reduce contention.
 /// </remarks>
 public sealed class EventHandlers
 {
-    private readonly Grouping<ReadOnlyMemory<byte>, Action<ReadOnlyMemory<byte>>> _handlers;
+    private readonly Grouping<ReadOnlyMemory<byte>, Func<ReadOnlyMemory<byte>, Task>> _handlers;
 
     /// <summary>
     /// Creates a new <see cref="EventHandlers"/> instance.
     /// </summary>
     public EventHandlers()
     {
-        _handlers = new Grouping<ReadOnlyMemory<byte>, Action<ReadOnlyMemory<byte>>>(
+        _handlers = new Grouping<ReadOnlyMemory<byte>, Func<ReadOnlyMemory<byte>, Task>>(
             MemoryComparer<byte>.Instance,
             HashProducers.ForReadOnlyMemoryByte);
     }
@@ -30,8 +30,8 @@ public sealed class EventHandlers
     /// for the same topic.
     /// </summary>
     /// <param name="topic">The topic to register the handler for.</param>
-    /// <param name="handler">The action to invoke when an event notification is received for this topic.</param>
-    public void Set(ReadOnlyMemory<byte> topic, Action<ReadOnlyMemory<byte>> handler)
+    /// <param name="handler">The async action to invoke when an event notification is received for this topic.</param>
+    public void Set(ReadOnlyMemory<byte> topic, Func<ReadOnlyMemory<byte>, Task> handler)
     {
         _handlers.Add(topic, handler);
     }
@@ -42,7 +42,7 @@ public sealed class EventHandlers
     /// <param name="topic">The topic to remove the handler from.</param>
     /// <param name="handler">The handler to remove.</param>
     /// <returns><c>true</c> if the handler was found and removed; <c>false</c> otherwise.</returns>
-    public bool Remove(ReadOnlyMemory<byte> topic, Action<ReadOnlyMemory<byte>> handler)
+    public bool Remove(ReadOnlyMemory<byte> topic, Func<ReadOnlyMemory<byte>, Task> handler)
     {
         return _handlers.Remove(topic, handler);
     }
@@ -53,11 +53,7 @@ public sealed class EventHandlers
     /// <param name="topic">The topic to remove all handlers from.</param>
     public void Remove(ReadOnlyMemory<byte> topic)
     {
-        var handlers = GetHandlers(topic);
-        foreach (var handler in handlers)
-        {
-            _handlers.Remove(topic, handler);
-        }
+        _handlers.RemoveAll(topic);
     }
 
     /// <summary>
@@ -66,7 +62,7 @@ public sealed class EventHandlers
     /// <param name="topic">The topic to look up.</param>
     /// <returns>A <see cref="HashSet{T}"/> containing copies of all handlers for the topic,
     /// or an empty set if no handlers are registered.</returns>
-    internal HashSet<Action<ReadOnlyMemory<byte>>> GetHandlers(ReadOnlyMemory<byte> topic)
+    internal HashSet<Func<ReadOnlyMemory<byte>, Task>> GetHandlers(ReadOnlyMemory<byte> topic)
     {
         return _handlers.Get(topic);
     }
@@ -76,12 +72,23 @@ public sealed class EventHandlers
     /// </summary>
     /// <param name="topic">The topic whose handlers to invoke.</param>
     /// <param name="message">The message payload to pass to each handler.</param>
-    public void Invoke(ReadOnlyMemory<byte> topic, ReadOnlyMemory<byte> message)
+    public Task Invoke(ReadOnlyMemory<byte> topic, ReadOnlyMemory<byte> message)
     {
         var handlers = _handlers.Get(topic);
+        var tasks = new Task[handlers.Count];
+        var i = 0;
         foreach (var handler in handlers)
         {
-            handler(message);
+            tasks[i++] = handler(message);
         }
+        return Task.WhenAll(tasks);
+    }
+
+    /// <summary>
+    /// Removes all handlers for all topics.
+    /// </summary>
+    public void Clear()
+    {
+        _handlers.Clear();
     }
 }

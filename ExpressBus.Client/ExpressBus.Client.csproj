@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ExpressBus.Buffering\ExpressBus.Buffering.csproj" />
+    <ProjectReference Include="..\ExpressBus.Concurrency\ExpressBus.Concurrency.csproj" />
     <ProjectReference Include="..\ExpressBus.DataStructures\ExpressBus.DataStructures.csproj" />
     <ProjectReference Include="..\ExpressBus.Protocol\ExpressBus.Protocol.csproj" />
   </ItemGroup>

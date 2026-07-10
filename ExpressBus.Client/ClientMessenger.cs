@@ -23,7 +23,8 @@ public sealed class ClientMessenger : IClientMessenger, IAsyncDisposable
 {
     private readonly IConnectionFactory _factory;
     private readonly Address _address;
-    private readonly ConcurrentDictionary<Guid, TaskCompletionSource<ReadOnlyMemory<byte>>> _pendingRequests = new();
+    // Boxing occurs here - likely performance tradeoff
+    private readonly ConcurrentDictionary<Guid, TaskCompletionSource<IRequestAssociated>> _pendingRequests = new();
     private volatile bool _disposed;
 
     private IConnection? _connection;
@@ -88,19 +89,19 @@ public sealed class ClientMessenger : IClientMessenger, IAsyncDisposable
     private async Task<TResponse> SendRequestResponseAsync<TRequest, TResponse>(
         Func<Guid, TRequest> createRequest)
         where TRequest : struct, IByteSerializable<TRequest>, IMessageSize, IRequestAssociated
-        where TResponse : struct, IByteSerializable<TResponse>
+        where TResponse : struct, IByteSerializable<TResponse>, IRequestAssociated
     {
         var request = createRequest(Guid.NewGuid());
-        var raw = await SendRequestAsync(request).ConfigureAwait(false);
-        return TResponse.FromBytes(raw.ToArray());
+        return await SendRequestAsync<TRequest, TResponse>(request).ConfigureAwait(false);
     }
 
-    private async Task<ReadOnlyMemory<byte>> SendRequestAsync<TRequest>(TRequest request)
+    private async Task<TResponse> SendRequestAsync<TRequest, TResponse>(TRequest request)
         where TRequest : struct, IByteSerializable<TRequest>, IMessageSize, IRequestAssociated
+        where TResponse : struct, IByteSerializable<TResponse>, IRequestAssociated
     {
         var requestId = request.RequestId;
 
-        var tcs = new TaskCompletionSource<ReadOnlyMemory<byte>>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var tcs = new TaskCompletionSource<IRequestAssociated>(TaskCreationOptions.RunContinuationsAsynchronously);
         _pendingRequests.TryAdd(requestId, tcs);
 
         try
@@ -111,8 +112,8 @@ public sealed class ClientMessenger : IClientMessenger, IAsyncDisposable
             request.ToBytes(payload.Memory);
             await Connection.SendAsync(payload.Memory, _listenerCts!.Token).ConfigureAwait(false);
 
-            // Wait for background listener to complete the TCS with the full framed response bytes
-            return await tcs.Task.ConfigureAwait(false);
+            // Wait for background listener to complete the TCS with the deserialized response
+            return (TResponse)(await tcs.Task.ConfigureAwait(false));
         }
         catch
         {
@@ -146,23 +147,22 @@ public sealed class ClientMessenger : IClientMessenger, IAsyncDisposable
                 await Connection.ReceiveFullAsync(fullBuffer.Memory.Slice(5), cancellationToken).ConfigureAwait(false);
                 var framedPayload = fullBuffer.Memory;
 
-                // Deserialize to extract RequestId, then complete the matching TCS
-                TaskCompletionSource<ReadOnlyMemory<byte>>? tcs = null;
+                // Deserialize once, extract RequestId, and complete the matching TCS
                 if (responseType == BroadcastResponse.MessageTypeIdentifier)
                 {
-                    tcs = TryCompleteRequest<BroadcastResponse>(framedPayload, framedPayload);
+                    TryCompleteRequest<BroadcastResponse>(framedPayload);
                 }
                 else if (responseType == SubscribeResponse.MessageTypeIdentifier)
                 {
-                    tcs = TryCompleteRequest<SubscribeResponse>(framedPayload, framedPayload);
+                    TryCompleteRequest<SubscribeResponse>(framedPayload);
                 }
                 else if (responseType == UnsubscribeAllResponse.MessageTypeIdentifier)
                 {
-                    tcs = TryCompleteRequest<UnsubscribeAllResponse>(framedPayload, framedPayload);
+                    TryCompleteRequest<UnsubscribeAllResponse>(framedPayload);
                 }
                 else if (responseType == UnsubscribeResponse.MessageTypeIdentifier)
                 {
-                    tcs = TryCompleteRequest<UnsubscribeResponse>(framedPayload, framedPayload);
+                    TryCompleteRequest<UnsubscribeResponse>(framedPayload);
                 }
                 else if (responseType == EventNotification.MessageTypeIdentifier)
                 {
@@ -175,7 +175,6 @@ public sealed class ClientMessenger : IClientMessenger, IAsyncDisposable
                     continue;
                 }
 
-                tcs?.TrySetResult(framedPayload);
             }
         }
         catch (OperationCanceledException)
@@ -192,12 +191,12 @@ public sealed class ClientMessenger : IClientMessenger, IAsyncDisposable
         }
     }
 
-    private TaskCompletionSource<ReadOnlyMemory<byte>>? TryCompleteRequest<TResponse>(
-        Memory<byte> buffer, ReadOnlyMemory<byte> payload)
+    private void TryCompleteRequest<TResponse>(Memory<byte> buffer)
         where TResponse : struct, IByteSerializable<TResponse>, IRequestAssociated
     {
         var msg = TResponse.FromBytes(buffer);
-        return _pendingRequests.TryRemove(msg.RequestId, out var found) ? found : null;
+        if (_pendingRequests.TryRemove(msg.RequestId, out var tcs))
+            tcs.TrySetResult(msg);
     }
 
     private void OnConnectionClosed(CloseMode mode)
