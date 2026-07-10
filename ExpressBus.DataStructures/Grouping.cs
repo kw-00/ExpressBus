@@ -130,6 +130,14 @@ public sealed class Grouping<G, V> where G : notnull
     }
 
     /// <summary>
+    /// Returns a snapshot of all group keys.
+    /// </summary>
+    public List<G> GetKeys()
+    {
+        return _groups.Keys.ToList();
+    }
+
+    /// <summary>
     /// Removes the value from all groups it appears in.
     /// </summary>
     /// <param name="value">The value to remove from every group.</param>

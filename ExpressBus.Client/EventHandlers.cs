@@ -85,6 +85,14 @@ public sealed class EventHandlers
     }
 
     /// <summary>
+    /// Returns a snapshot of all registered topic keys.
+    /// </summary>
+    internal List<ReadOnlyMemory<byte>> GetTopics()
+    {
+        return _handlers.GetKeys();
+    }
+
+    /// <summary>
     /// Removes all handlers for all topics.
     /// </summary>
     public void Clear()

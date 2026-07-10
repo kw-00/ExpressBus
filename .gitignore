@@ -292,3 +292,6 @@ __pycache__/
 *.xsd.cs
 
 .aider*
+
+# Reports
+reports/

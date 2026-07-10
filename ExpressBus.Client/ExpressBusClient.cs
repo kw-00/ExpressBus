@@ -3,6 +3,7 @@ using ExpressBus.Concurrency;
 using ExpressBus.DataStructures;
 using ExpressBus.Protocol;
 using ExpressBus.Protocol.Bus;
+using ExpressBus.Transfer;
 
 namespace ExpressBus.Client;
 
@@ -25,50 +26,88 @@ namespace ExpressBus.Client;
 /// </remarks>
 public sealed class ExpressBusClient : IAsyncDisposable
 {
-    private readonly ClientMessenger _messenger;
+    private readonly IConnectionFactory _factory;
+    private readonly Address _address;
     private readonly EventHandlers _handlers;
     private readonly PartitionedReaderWriterLock<ReadOnlyMemory<byte>> _partitionedLock;
     private readonly ReaderWriterLockSlim _bulkLock = new();
 
     private volatile bool _started;
-    private volatile bool _stopped;
+    private ClientMessenger? _messenger;
+
+    private ClientMessenger Messenger => _messenger ?? throw new InvalidOperationException("Client not started. Call StartAsync().");
 
     /// <summary>
-    /// Creates an <see cref="ExpressBusClient"/> backed by the given messenger.
+    /// Creates an <see cref="ExpressBusClient"/> backed by the given factory and address.
     /// </summary>
-    /// <param name="messenger">The low-level client messenger for I/O.</param>
-    public ExpressBusClient(ClientMessenger messenger)
-        : this(messenger, new EventHandlers())
+    /// <param name="factory">The factory used to create the underlying connection.</param>
+    /// <param name="address">The remote address to connect to.</param>
+    public ExpressBusClient(IConnectionFactory factory, Address address)
+        : this(factory, address, new EventHandlers())
     {
     }
 
     /// <summary>
     /// Creates an <see cref="ExpressBusClient"/> with a custom handler registry.
     /// </summary>
-    /// <param name="messenger">The low-level client messenger for I/O.</param>
+    /// <param name="factory">The factory used to create the underlying connection.</param>
+    /// <param name="address">The remote address to connect to.</param>
     /// <param name="handlers">The event handler registry.</param>
-    public ExpressBusClient(ClientMessenger messenger, EventHandlers handlers)
+    public ExpressBusClient(IConnectionFactory factory, Address address, EventHandlers handlers)
     {
-        _messenger = messenger;
+        _factory = factory;
+        _address = address;
         _handlers = handlers;
         _partitionedLock = new PartitionedReaderWriterLock<ReadOnlyMemory<byte>>(
             16, HashProducers.ForReadOnlyMemoryByte);
     }
 
     /// <summary>
-    /// Establishes the connection to the broker and starts the event listener.
+    /// Establishes the connection to the broker, starts the event listener,
+    /// and subscribes to all topics that have registered handlers.
     /// </summary>
-    public Task StartAsync()
+    /// <remarks>
+    /// If any broker subscription fails, the messenger is disposed and the
+    /// connection is closed — the broker will clean up all subscriptions.
+    /// The client remains in a clean (not-started) state and may be retried.
+    /// </remarks>
+    public async Task StartAsync()
     {
         if (_started)
-            return Task.CompletedTask;
+            return;
 
-        _messenger.Event = OnEventNotificationAsync;
-        _messenger.StartAsync();
-        _started = true;
-        _stopped = false;
+        _bulkLock.EnterWriteLock();
+        try
+        {
+            _messenger = new ClientMessenger(_factory, _address);
+            _messenger.Event = OnEventNotificationAsync;
+            await _messenger.StartAsync().ConfigureAwait(false);
 
-        return Task.CompletedTask;
+            var topics = _handlers.GetTopics();
+            try
+            {
+                foreach (var topic in topics)
+                {
+                    await _messenger.SendSubscribeRequestAsync(
+                            new SubscribeRequest(Guid.NewGuid(), new SerializableByteMemory(topic.Length, topic)))
+                        .ConfigureAwait(false);
+                }
+
+                _started = true;
+            }
+            catch
+            {
+                // Dispose the messenger to disconnect — broker will clean up all subscriptions.
+                await _messenger.DisposeAsync().ConfigureAwait(false);
+                _messenger = null;
+
+                throw;
+            }
+        }
+        finally
+        {
+            _bulkLock.ExitWriteLock();
+        }
     }
 
     /// <summary>
@@ -76,10 +115,10 @@ public sealed class ExpressBusClient : IAsyncDisposable
     /// </summary>
     public async Task StopAsync()
     {
-        if (_stopped)
+        if (!_started)
             return;
 
-        _stopped = true;
+        _started = false;
 
         _bulkLock.EnterWriteLock();
         try
@@ -91,7 +130,8 @@ public sealed class ExpressBusClient : IAsyncDisposable
             _bulkLock.ExitWriteLock();
         }
 
-        await _messenger.DisposeAsync().ConfigureAwait(false);
+        await Messenger.DisposeAsync().ConfigureAwait(false);
+        _messenger = null;
     }
 
     /// <summary>
@@ -116,7 +156,7 @@ public sealed class ExpressBusClient : IAsyncDisposable
 
                 if (existing.Count == 0)
                 {
-                    await _messenger.SendSubscribeRequestAsync(
+                    await Messenger.SendSubscribeRequestAsync(
                         new SubscribeRequest(Guid.NewGuid(), new SerializableByteMemory(topic.Length, topic)))
                         .ConfigureAwait(false);
                 }
@@ -160,7 +200,7 @@ public sealed class ExpressBusClient : IAsyncDisposable
 
                 _handlers.Remove(topic);
 
-                await _messenger.SendUnsubscribeRequestAsync(
+                await Messenger.SendUnsubscribeRequestAsync(
                     new UnsubscribeRequest(Guid.NewGuid(), new SerializableByteMemory(topic.Length, topic)))
                     .ConfigureAwait(false);
             }
@@ -191,7 +231,7 @@ public sealed class ExpressBusClient : IAsyncDisposable
         {
             _handlers.Clear();
 
-            await _messenger.SendUnsubscribeAllRequestAsync(
+            await Messenger.SendUnsubscribeAllRequestAsync(
                 new UnsubscribeAllRequest(Guid.NewGuid()))
                 .ConfigureAwait(false);
         }
@@ -211,7 +251,7 @@ public sealed class ExpressBusClient : IAsyncDisposable
         _bulkLock.EnterReadLock();
         try
         {
-            await _messenger.SendBroadcastRequestAsync(
+            await Messenger.SendBroadcastRequestAsync(
                 new BroadcastRequest(
                     Guid.NewGuid(),
                     new SerializableByteMemory(topic.Length, topic),
