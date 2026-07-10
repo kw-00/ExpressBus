@@ -26,19 +26,25 @@ public sealed class ConnectionHandling
     {
         while (!cancellationToken.IsCancellationRequested)
         {
+            // Read 1-byte type identifier to dispatch
             var typeBuffer = CreateBuffer(1);
             if (await _connection.ReceiveFullAsync(typeBuffer.Memory, cancellationToken).ConfigureAwait(false) < typeBuffer.Memory.Length) break;
             var typeByte = typeBuffer.Memory.Span[0];
             typeBuffer.Dispose();
 
+            // Read 4-byte message size (LE int32)
             var sizeBuffer = CreateBuffer(4);
             if (await _connection.ReceiveFullAsync(sizeBuffer.Memory, cancellationToken).ConfigureAwait(false) < sizeBuffer.Memory.Length) break;
             var messageSize = BinaryPrimitives.ReadInt32LittleEndian(sizeBuffer.Memory.Span);
             sizeBuffer.Dispose();
 
-            var payload = CreateBuffer(messageSize);
-            if (await _connection.ReceiveFullAsync(payload.Memory, cancellationToken).ConfigureAwait(false) < payload.Memory.Length) break;
-            var requestBytes = payload.Memory;
+            // Read remaining payload (messageSize - 5 bytes, since frame is 5 bytes)
+            var remainingSize = messageSize - 5;
+            var fullBuffer = CreateBuffer(messageSize);
+            fullBuffer.Memory.Span[0] = typeByte;
+            BinaryPrimitives.WriteInt32LittleEndian(fullBuffer.Memory.Span.Slice(1), messageSize);
+            if (await _connection.ReceiveFullAsync(fullBuffer.Memory.Slice(5), cancellationToken).ConfigureAwait(false) < remainingSize) break;
+            var requestBytes = fullBuffer.Memory;
 
             DisposableMemory response;
             if (typeByte == BroadcastRequest.MessageTypeIdentifier)
@@ -72,17 +78,9 @@ public sealed class ConnectionHandling
     {
         var notification = new EventNotification(request.Topic, request.Message);
         var notificationSize = notification.ByteSize;
-
-        var notifOwner = CreateBuffer(notificationSize);
-        notification.ToBytes(notifOwner.Memory);
-        var notifBytes = notifOwner.Memory.Slice(0, notificationSize);
-
-        var wireSize = 5 + notifBytes.Length;
-        var wireOwner = CreateBuffer(wireSize);
-        var wireMem = wireOwner.Memory;
-        wireMem.Span[0] = EventNotification.MessageTypeIdentifier;
-        BinaryPrimitives.WriteInt32LittleEndian(wireMem.Span.Slice(1), notifBytes.Length);
-        notifBytes.Span.CopyTo(wireMem.Span.Slice(5));
+        var wireOwner = CreateBuffer(notificationSize);
+        notification.ToBytes(wireOwner.Memory);
+        var wireMem = wireOwner.Memory.Slice(0, notificationSize);
 
         var subscribers = _topicTracker.GetSubscribers(request.Topic.Memory);
         subscribers.Remove(_connection);
@@ -91,7 +89,7 @@ public sealed class ConnectionHandling
         {
             try
             {
-                subscriber.SendAsync(wireMem.Slice(0, wireSize)).GetAwaiter().GetResult();
+                subscriber.SendAsync(wireMem).GetAwaiter().GetResult();
             }
             catch (Exception ex)
             {
@@ -99,7 +97,6 @@ public sealed class ConnectionHandling
             }
         }
 
-        notifOwner.Dispose();
         wireOwner.Dispose();
 
         return new BroadcastResponse(Status.Success, request.RequestId);

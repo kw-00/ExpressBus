@@ -15,8 +15,8 @@ namespace ExpressBus.Client;
 /// Uses a background listener thread to receive responses and correlate them with pending
 /// requests via <see cref="IRequestAssociated.RequestId"/>. The wire format is:
 /// <list type="bullet">
-///   <item><description>Request: <c>[1-byte type][N-byte payload]</c> (generated <c>ToBytes</c> handles serialization).</description></item>
-///   <item><description>Response: <c>[1-byte type][4-byte size LE int32][N-byte payload]</c>.</description></item>
+///   <item><description>Request: <c>[1-byte type][4-byte size LE int32][N-byte payload]</c> (generated <c>ToBytes</c> handles framing).</description></item>
+///   <item><description>Response: <c>[1-byte type][4-byte size LE int32][N-byte payload]</c> (generated <c>ToBytes</c> handles framing).</description></item>
 /// </list>
 /// </remarks>
 public sealed class ClientMessenger : IClientMessenger, IAsyncDisposable
@@ -105,13 +105,13 @@ public sealed class ClientMessenger : IClientMessenger, IAsyncDisposable
 
         try
         {
-            // Serialize request: ToBytes writes [type byte][field bytes]
+            // Serialize request: ToBytes writes [type byte][4-byte size][field bytes]
             var payloadSize = request.ByteSize;
             using var payload = new DisposableMemory(payloadSize);
             request.ToBytes(payload.Memory);
             await Connection.SendAsync(payload.Memory, _listenerCts!.Token).ConfigureAwait(false);
 
-            // Wait for background listener to complete the TCS with the raw response bytes
+            // Wait for background listener to complete the TCS with the full framed response bytes
             return await tcs.Task.ConfigureAwait(false);
         }
         catch
@@ -138,32 +138,35 @@ public sealed class ClientMessenger : IClientMessenger, IAsyncDisposable
                 await Connection.ReceiveFullAsync(sizeBuffer.Memory, cancellationToken).ConfigureAwait(false);
                 var responseSize = BinaryPrimitives.ReadInt32LittleEndian(sizeBuffer.Memory.Span);
 
-                // Read payload
-                using var payloadBuffer = new DisposableMemory(responseSize);
-                await Connection.ReceiveFullAsync(payloadBuffer.Memory, cancellationToken).ConfigureAwait(false);
-                var payload = payloadBuffer.Memory;
+                // Read remaining payload (responseSize - 5 bytes, since frame is 5 bytes)
+                var remainingSize = responseSize - 5;
+                using var fullBuffer = new DisposableMemory(responseSize);
+                fullBuffer.Memory.Span[0] = responseType;
+                BinaryPrimitives.WriteInt32LittleEndian(fullBuffer.Memory.Span.Slice(1), responseSize);
+                await Connection.ReceiveFullAsync(fullBuffer.Memory.Slice(5), cancellationToken).ConfigureAwait(false);
+                var framedPayload = fullBuffer.Memory;
 
                 // Deserialize to extract RequestId, then complete the matching TCS
                 TaskCompletionSource<ReadOnlyMemory<byte>>? tcs = null;
                 if (responseType == BroadcastResponse.MessageTypeIdentifier)
                 {
-                    tcs = TryCompleteRequest<BroadcastResponse>(payload, payload);
+                    tcs = TryCompleteRequest<BroadcastResponse>(framedPayload, framedPayload);
                 }
                 else if (responseType == SubscribeResponse.MessageTypeIdentifier)
                 {
-                    tcs = TryCompleteRequest<SubscribeResponse>(payload, payload);
+                    tcs = TryCompleteRequest<SubscribeResponse>(framedPayload, framedPayload);
                 }
                 else if (responseType == UnsubscribeAllResponse.MessageTypeIdentifier)
                 {
-                    tcs = TryCompleteRequest<UnsubscribeAllResponse>(payload, payload);
+                    tcs = TryCompleteRequest<UnsubscribeAllResponse>(framedPayload, framedPayload);
                 }
                 else if (responseType == UnsubscribeResponse.MessageTypeIdentifier)
                 {
-                    tcs = TryCompleteRequest<UnsubscribeResponse>(payload, payload);
+                    tcs = TryCompleteRequest<UnsubscribeResponse>(framedPayload, framedPayload);
                 }
                 else if (responseType == EventNotification.MessageTypeIdentifier)
                 {
-                    var msg = EventNotification.FromBytes(payload);
+                    var msg = EventNotification.FromBytes(framedPayload);
                     await (Event?.Invoke(msg) ?? Task.CompletedTask).ConfigureAwait(false);
                 }
                 else
@@ -172,7 +175,7 @@ public sealed class ClientMessenger : IClientMessenger, IAsyncDisposable
                     continue;
                 }
 
-                tcs?.TrySetResult(payload);
+                tcs?.TrySetResult(framedPayload);
             }
         }
         catch (OperationCanceledException)
