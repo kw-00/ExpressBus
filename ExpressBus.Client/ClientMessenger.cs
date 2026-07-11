@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Buffers.Binary;
+using System.Threading;
 using ExpressBus.Buffering;
 using ExpressBus.Protocol;
 using ExpressBus.Protocol.Bus;
@@ -29,7 +30,8 @@ public sealed class ClientMessenger : IClientMessenger, IAsyncDisposable
 
     private IConnection? _connection;
     private CancellationTokenSource? _listenerCts;
-    private bool _started;
+    private Task? _listenerTask;
+    private int _started; // 0 = not started, 1 = started
 
     /// <summary>
     /// Invoked when an <see cref="EventNotification"/> arrives from the server.
@@ -53,15 +55,30 @@ public sealed class ClientMessenger : IClientMessenger, IAsyncDisposable
     /// <inheritdoc />
     public Task StartAsync()
     {
-        if (_started)
-            return Task.CompletedTask;
+        if (Interlocked.CompareExchange(ref _started, 1, 0) != 0)
+            return Task.CompletedTask; // already started or starting
 
-        _started = true;
-
-        _connection = _factory.CreateConnection(_address);
-        _connection!.Closed += OnConnectionClosed;
-        _listenerCts = new CancellationTokenSource();
-        Task.Factory.StartNew(() => ResponseListenerAsync(_listenerCts.Token).GetAwaiter().GetResult(), TaskCreationOptions.LongRunning);
+        try
+        {
+            _connection = _factory.CreateConnection(_address);
+            _connection!.Closed += OnConnectionClosed;
+            _listenerCts = new CancellationTokenSource();
+            var token = _listenerCts.Token;
+            _listenerTask = Task.Run(() => ResponseListenerAsync(token));
+        }
+        catch
+        {
+            Interlocked.Exchange(ref _started, 0); // allow retry
+            if (_connection != null)
+            {
+                _connection.Closed -= OnConnectionClosed;
+                _connection = null;
+            }
+            _listenerCts?.Cancel();
+            _listenerCts?.Dispose();
+            _listenerCts = null;
+            throw;
+        }
 
         return Task.CompletedTask;
     }
@@ -217,6 +234,9 @@ public sealed class ClientMessenger : IClientMessenger, IAsyncDisposable
 
         _listenerCts?.Cancel();
         _listenerCts?.Dispose();
+
+        if (_listenerTask != null)
+            await _listenerTask.ConfigureAwait(false);
 
         foreach (var tcs in _pendingRequests.Values)
             tcs.TrySetCanceled();

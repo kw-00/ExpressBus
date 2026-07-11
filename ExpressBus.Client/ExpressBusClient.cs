@@ -73,12 +73,11 @@ public sealed class ExpressBusClient : IAsyncDisposable
     /// </remarks>
     public async Task StartAsync()
     {
-        if (_started)
-            return;
-
         _bulkLock.EnterWriteLock();
         try
         {
+            if (_started)
+                return;
             _messenger = new ClientMessenger(_factory, _address);
             _messenger.Event = OnEventNotificationAsync;
             await _messenger.StartAsync().ConfigureAwait(false);
@@ -270,16 +269,15 @@ public sealed class ExpressBusClient : IAsyncDisposable
     /// </summary>
     private async Task OnEventNotificationAsync(EventNotification notification)
     {
+        var handlers = default(HashSet<Func<ReadOnlyMemory<byte>, Task>>);
+
         _bulkLock.EnterReadLock();
         try
         {
             _partitionedLock.AcquireRead(notification.Topic.Memory);
             try
             {
-                await _handlers.Invoke(
-                    notification.Topic.Memory,
-                    notification.Message.Memory)
-                    .ConfigureAwait(false);
+                handlers = _handlers.GetHandlers(notification.Topic.Memory);
             }
             finally
             {
@@ -290,6 +288,16 @@ public sealed class ExpressBusClient : IAsyncDisposable
         {
             _bulkLock.ExitReadLock();
         }
+
+        // Invoke handlers outside all locks to avoid deadlock if a handler
+        // calls back into this client (e.g. SubscribeAsync, UnsubscribeAsync).
+        var tasks = new Task[handlers.Count];
+        var i = 0;
+        foreach (var handler in handlers)
+        {
+            tasks[i++] = handler(notification.Message.Memory);
+        }
+        await Task.WhenAll(tasks).ConfigureAwait(false);
     }
 
     /// <inheritdoc />

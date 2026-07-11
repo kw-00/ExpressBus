@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using ExpressBus.Concurrency;
+using System.Linq;
 
 namespace ExpressBus.DataStructures;
 
@@ -143,9 +144,15 @@ public sealed class Grouping<G, V> where G : notnull
     /// <param name="value">The value to remove from every group.</param>
     public void RemoveEverywhere(V value)
     {
+        // Acquire bulk write lock to prevent concurrent modifications
         _bulkLock.EnterWriteLock();
         try
         {
+            // Capture current group keys and acquire per-group write locks
+            var groupKeys = _groups.Keys.ToList();
+            foreach (var group in groupKeys)
+                _locks.AcquireWrite(group);
+
             var groupsToRemove = new List<G>();
 
             foreach (var kvp in _groups)
@@ -159,6 +166,10 @@ public sealed class Grouping<G, V> where G : notnull
 
             foreach (var group in groupsToRemove)
                 _groups.TryRemove(group, out _);
+
+            // Release per-group write locks
+            foreach (var group in groupKeys)
+                _locks.ReleaseWrite(group);
         }
         finally
         {
