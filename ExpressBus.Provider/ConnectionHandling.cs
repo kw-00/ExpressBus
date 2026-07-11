@@ -3,6 +3,7 @@ using ExpressBus.Buffering;
 using ExpressBus.Protocol;
 using ExpressBus.Protocol.Bus;
 using ExpressBus.Transfer;
+using System.Threading.Tasks;
 
 namespace ExpressBus.Provider;
 
@@ -48,7 +49,7 @@ public sealed class ConnectionHandling
 
             DisposableMemory response;
             if (typeByte == BroadcastRequest.MessageTypeIdentifier)
-                response = SerializeResponse(HandleBroadcastRequest(BroadcastRequest.FromBytes(requestBytes)));
+                response = SerializeResponse(await HandleBroadcastRequestAsync(BroadcastRequest.FromBytes(requestBytes)).ConfigureAwait(false));
             else if (typeByte == SubscribeRequest.MessageTypeIdentifier)
                 response = SerializeResponse(HandleSubscribeRequest(SubscribeRequest.FromBytes(requestBytes)));
             else if (typeByte == UnsubscribeRequest.MessageTypeIdentifier)
@@ -74,7 +75,7 @@ public sealed class ConnectionHandling
         return owner;
     }
 
-    private BroadcastResponse HandleBroadcastRequest(BroadcastRequest request)
+    private async Task<BroadcastResponse> HandleBroadcastRequestAsync(BroadcastRequest request)
     {
         var notification = new EventNotification(request.Topic, request.Message);
         var notificationSize = notification.ByteSize;
@@ -89,7 +90,7 @@ public sealed class ConnectionHandling
         {
             try
             {
-                subscriber.SendAsync(wireMem).GetAwaiter().GetResult();
+                await subscriber.SendAsync(wireMem).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
