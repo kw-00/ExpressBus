@@ -39,15 +39,23 @@ public sealed class Grouping<G, V> where G : notnull
     /// </summary>
     public void Add(G group, V value)
     {
-        _locks.AcquireWrite(group);
+        _bulkLock.EnterReadLock();
         try
         {
-            var set = _groups.GetOrAdd(group, _ => new HashSet<V>());
-            set.Add(value);
+            _locks.AcquireWrite(group);
+            try
+            {
+                var set = _groups.GetOrAdd(group, _ => new HashSet<V>());
+                set.Add(value);
+            }
+            finally
+            {
+                _locks.ReleaseWrite(group);
+            }
         }
         finally
         {
-            _locks.ReleaseWrite(group);
+            _bulkLock.ExitReadLock();
         }
     }
 
@@ -57,21 +65,29 @@ public sealed class Grouping<G, V> where G : notnull
     /// <returns><c>true</c> if the value was found and removed; <c>false</c> otherwise.</returns>
     public bool Remove(G group, V value)
     {
-        _locks.AcquireWrite(group);
+        _bulkLock.EnterReadLock();
         try
         {
-            if (!_groups.TryGetValue(group, out var set))
-                return false;
+            _locks.AcquireWrite(group);
+            try
+            {
+                if (!_groups.TryGetValue(group, out var set))
+                    return false;
 
-            var removed = set.Remove(value);
-            if (removed && set.Count == 0)
-                _groups.TryRemove(group, out _);
+                var removed = set.Remove(value);
+                if (removed && set.Count == 0)
+                    _groups.TryRemove(group, out _);
 
-            return removed;
+                return removed;
+            }
+            finally
+            {
+                _locks.ReleaseWrite(group);
+            }
         }
         finally
         {
-            _locks.ReleaseWrite(group);
+            _bulkLock.ExitReadLock();
         }
     }
 
@@ -83,17 +99,25 @@ public sealed class Grouping<G, V> where G : notnull
     /// or an empty set if the group does not exist.</returns>
     public HashSet<V> Get(G group)
     {
-        _locks.AcquireRead(group);
+        _bulkLock.EnterReadLock();
         try
         {
-            if (!_groups.TryGetValue(group, out var set))
-                return new HashSet<V>();
+            _locks.AcquireRead(group);
+            try
+            {
+                if (!_groups.TryGetValue(group, out var set))
+                    return new HashSet<V>();
 
-            return new HashSet<V>(set);
+                return new HashSet<V>(set);
+            }
+            finally
+            {
+                _locks.ReleaseRead(group);
+            }
         }
         finally
         {
-            _locks.ReleaseRead(group);
+            _bulkLock.ExitReadLock();
         }
     }
 
@@ -103,14 +127,22 @@ public sealed class Grouping<G, V> where G : notnull
     /// <param name="group">The group key to remove entirely.</param>
     public void RemoveAll(G group)
     {
-        _locks.AcquireWrite(group);
+        _bulkLock.EnterReadLock();
         try
         {
-            _groups.TryRemove(group, out _);
+            _locks.AcquireWrite(group);
+            try
+            {
+                _groups.TryRemove(group, out _);
+            }
+            finally
+            {
+                _locks.ReleaseWrite(group);
+            }
         }
         finally
         {
-            _locks.ReleaseWrite(group);
+            _bulkLock.ExitReadLock();
         }
     }
 
@@ -144,15 +176,9 @@ public sealed class Grouping<G, V> where G : notnull
     /// <param name="value">The value to remove from every group.</param>
     public void RemoveEverywhere(V value)
     {
-        // Acquire bulk write lock to prevent concurrent modifications
         _bulkLock.EnterWriteLock();
         try
         {
-            // Capture current group keys and acquire per-group write locks
-            var groupKeys = _groups.Keys.ToList();
-            foreach (var group in groupKeys)
-                _locks.AcquireWrite(group);
-
             var groupsToRemove = new List<G>();
 
             foreach (var kvp in _groups)
@@ -166,10 +192,6 @@ public sealed class Grouping<G, V> where G : notnull
 
             foreach (var group in groupsToRemove)
                 _groups.TryRemove(group, out _);
-
-            // Release per-group write locks
-            foreach (var group in groupKeys)
-                _locks.ReleaseWrite(group);
         }
         finally
         {
