@@ -5,9 +5,9 @@ namespace ExpressBus.DataStructures;
 /// <summary>
 /// Comparer that hashes and compares <see cref="ReadOnlyMemory{T}"/> by contents.
 /// </summary>
-/// <typeparam name="T">The element type. Must be a non-abstract type with parameterless constructor.</typeparam>
+/// <typeparam name="T">The element type. Must be an unmanaged type.</typeparam>
 public sealed class MemoryComparer<T> : IEqualityComparer<ReadOnlyMemory<T>>
-    where T : unmanaged, IEquatable<T>
+    where T : unmanaged
 {
     public static readonly MemoryComparer<T> Instance = new();
 
