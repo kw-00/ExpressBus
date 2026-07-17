@@ -22,13 +22,7 @@ public sealed class Grouping<G, V> : IDisposable where G : notnull
     private readonly ConcurrentDictionary<G, HashSet<V>> _groups;
     private readonly PartitionedReaderWriterLock<G> _locks;
     private readonly ReaderWriterLockSlim _bulkLock = new();
-    private bool _disposed;
-
-    private void CheckDisposed()
-    {
-        if (_disposed)
-            throw new ObjectDisposedException(nameof(Grouping<G, V>));
-    }
+    private int _disposed;
 
     /// <summary>
     /// Creates a <see cref="Grouping{TKey, TValue}"/> with the specified comparer, hash function, and partition count.
@@ -47,10 +41,12 @@ public sealed class Grouping<G, V> : IDisposable where G : notnull
     /// </summary>
     public void Add(G group, V value)
     {
-        CheckDisposed();
         _bulkLock.EnterReadLock();
         try
         {
+            if (Interlocked.CompareExchange(ref _disposed, 0, 0) != 0)
+                throw new ObjectDisposedException(nameof(Grouping<G, V>));
+
             _locks.AcquireWrite(group);
             try
             {
@@ -74,10 +70,12 @@ public sealed class Grouping<G, V> : IDisposable where G : notnull
     /// <returns><c>true</c> if the value was found and removed; <c>false</c> otherwise.</returns>
     public bool Remove(G group, V value)
     {
-        CheckDisposed();
         _bulkLock.EnterReadLock();
         try
         {
+            if (Interlocked.CompareExchange(ref _disposed, 0, 0) != 0)
+                throw new ObjectDisposedException(nameof(Grouping<G, V>));
+
             _locks.AcquireWrite(group);
             try
             {
@@ -109,10 +107,12 @@ public sealed class Grouping<G, V> : IDisposable where G : notnull
     /// or an empty set if the group does not exist.</returns>
     public HashSet<V> Get(G group)
     {
-        CheckDisposed();
         _bulkLock.EnterReadLock();
         try
         {
+            if (Interlocked.CompareExchange(ref _disposed, 0, 0) != 0)
+                throw new ObjectDisposedException(nameof(Grouping<G, V>));
+
             _locks.AcquireRead(group);
             try
             {
@@ -138,10 +138,12 @@ public sealed class Grouping<G, V> : IDisposable where G : notnull
     /// <param name="group">The group key to remove entirely.</param>
     public void RemoveAll(G group)
     {
-        CheckDisposed();
         _bulkLock.EnterReadLock();
         try
         {
+            if (Interlocked.CompareExchange(ref _disposed, 0, 0) != 0)
+                throw new ObjectDisposedException(nameof(Grouping<G, V>));
+
             _locks.AcquireWrite(group);
             try
             {
@@ -163,10 +165,12 @@ public sealed class Grouping<G, V> : IDisposable where G : notnull
     /// </summary>
     public void Clear()
     {
-        CheckDisposed();
         _bulkLock.EnterWriteLock();
         try
         {
+            if (Interlocked.CompareExchange(ref _disposed, 0, 0) != 0)
+                throw new ObjectDisposedException(nameof(Grouping<G, V>));
+
             _groups.Clear();
         }
         finally
@@ -180,8 +184,18 @@ public sealed class Grouping<G, V> : IDisposable where G : notnull
     /// </summary>
     public ICollection<G> GetKeys()
     {
-        CheckDisposed();
-        return _groups.Keys.ToList();
+        _bulkLock.EnterReadLock();
+        try
+        {
+            if (Interlocked.CompareExchange(ref _disposed, 0, 0) != 0)
+                throw new ObjectDisposedException(nameof(Grouping<G, V>));
+
+            return _groups.Keys.ToList();
+        }
+        finally
+        {
+            _bulkLock.ExitReadLock();
+        }
     }
 
     /// <summary>
@@ -190,10 +204,12 @@ public sealed class Grouping<G, V> : IDisposable where G : notnull
     /// <param name="value">The value to remove from every group.</param>
     public void RemoveEverywhere(V value)
     {
-        CheckDisposed();
         _bulkLock.EnterWriteLock();
         try
         {
+            if (Interlocked.CompareExchange(ref _disposed, 0, 0) != 0)
+                throw new ObjectDisposedException(nameof(Grouping<G, V>));
+
             var groupsToRemove = new List<G>();
 
             foreach (var kvp in _groups)
@@ -216,9 +232,20 @@ public sealed class Grouping<G, V> : IDisposable where G : notnull
 
     public void Dispose()
     {
-        if (_disposed) return;
-        _disposed = true;
-        _groups.Clear();
+        _bulkLock.EnterWriteLock();
+        try
+        {
+            if (Interlocked.CompareExchange(ref _disposed, 0, 0) != 0)
+                return;
+
+            Interlocked.Exchange(ref _disposed, 1);
+            _groups.Clear();
+        }
+        finally
+        {
+            _bulkLock.ExitWriteLock();
+        }
+
         _locks.Dispose();
         _bulkLock.Dispose();
     }
