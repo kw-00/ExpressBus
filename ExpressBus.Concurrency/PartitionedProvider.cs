@@ -53,9 +53,7 @@ public sealed class PartitionedProvider<R, L> : IDisposable
                 throw new ObjectDisposedException(nameof(PartitionedProvider<R, L>));
 
             var hash = _hashFunction(key);
-            var index = hash % PartitionCount;
-            if (index < 0)
-                index = -index;
+            var index = ((hash % PartitionCount) + PartitionCount) % PartitionCount;
             return _partitions[index];
         }
         finally
