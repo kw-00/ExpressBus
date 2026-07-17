@@ -24,8 +24,7 @@ public class Worker(ILogger<Worker> logger) : BackgroundService
         finally
         {
             logger.LogInformation("Shutting down ExpressBus broker");
-            broker.StopAsync();
-            await listenTask.ConfigureAwait(false);
+            await broker.DisposeAsync().ConfigureAwait(false);
         }
     }
 }

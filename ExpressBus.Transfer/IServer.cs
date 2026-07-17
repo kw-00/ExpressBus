@@ -3,15 +3,10 @@ namespace ExpressBus.Transfer;
 /// <summary>
 /// Represents a server that accepts incoming connections.
 /// </summary>
-public interface IServer
+public interface IServer : IAsyncDisposable
 {
 	/// <summary>
 	/// Starts accepting incoming connections.
 	/// </summary>
 	Task ListenAsync();
-
-	/// <summary>
-	/// Stops the server and stops accepting new connections.
-	/// </summary>
-	void StopAsync();
 }
