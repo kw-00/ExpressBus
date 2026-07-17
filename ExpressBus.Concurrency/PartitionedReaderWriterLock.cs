@@ -1,3 +1,4 @@
+using System;
 using System.Threading;
 
 namespace ExpressBus.Concurrency;
@@ -7,7 +8,7 @@ namespace ExpressBus.Concurrency;
 /// to per-partition <see cref="ReaderWriterLockSlim"/> instances to reduce contention.
 /// </summary>
 /// <typeparam name="R">The resource key type used for partition routing.</typeparam>
-public sealed class PartitionedReaderWriterLock<R>
+public sealed class PartitionedReaderWriterLock<R> : IDisposable
 {
     private readonly PartitionedProvider<R, ReaderWriterLockSlim> _provider;
 
@@ -61,5 +62,10 @@ public sealed class PartitionedReaderWriterLock<R>
     {
         var lockObj = _provider.Get(resource);
         lockObj.ExitWriteLock();
+    }
+
+    public void Dispose()
+    {
+        _provider.Dispose();
     }
 }

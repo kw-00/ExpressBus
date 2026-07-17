@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.Threading;
 
 namespace ExpressBus.Concurrency;
 
@@ -8,10 +10,12 @@ namespace ExpressBus.Concurrency;
 /// </summary>
 /// <typeparam name="R">The routing key type (e.g., a topic identifier).</typeparam>
 /// <typeparam name="L">The locked/resource type (e.g., ReaderWriterLockSlim).</typeparam>
-public sealed class PartitionedProvider<R, L>
+public sealed class PartitionedProvider<R, L> : IDisposable
 {
     private readonly L[] _partitions;
     private readonly Func<R, int> _hashFunction;
+    private readonly ReaderWriterLockSlim _lock = new();
+    private int _disposed;
 
     /// <summary>
     /// Creates a partitioned provider with the specified number of partitions.
@@ -42,10 +46,43 @@ public sealed class PartitionedProvider<R, L>
     /// </summary>
     public L Get(R key)
     {
-        var hash = _hashFunction(key);
-        var index = hash % PartitionCount;
-        if (index < 0)
-            index = -index;
-        return _partitions[index];
+        _lock.EnterReadLock();
+        try
+        {
+            if (Interlocked.CompareExchange(ref _disposed, 0, 0) != 0)
+                throw new ObjectDisposedException(nameof(PartitionedProvider<R, L>));
+
+            var hash = _hashFunction(key);
+            var index = hash % PartitionCount;
+            if (index < 0)
+                index = -index;
+            return _partitions[index];
+        }
+        finally
+        {
+            _lock.ExitReadLock();
+        }
+    }
+
+    public void Dispose()
+    {
+        _lock.EnterWriteLock();
+        try
+        {
+            if (Interlocked.CompareExchange(ref _disposed, 0, 0) != 0)
+                return;
+
+            Interlocked.Exchange(ref _disposed, 1);
+
+            foreach (var partition in _partitions)
+            {
+                if (partition is IDisposable disposable)
+                    disposable.Dispose();
+            }
+        }
+        finally
+        {
+            _lock.ExitWriteLock();
+        }
     }
 }
