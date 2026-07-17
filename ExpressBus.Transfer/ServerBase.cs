@@ -34,16 +34,15 @@ public abstract class ServerBase : IServer
 	/// <inheritdoc />
 	public async void StopAsync()
 	{
+		await _stoppingTokenLock.WaitAsync();
 		try
 		{
-			await _stoppingTokenLock.WaitAsync();
-
 			_stoppingTokenSource?.Cancel();
 			_stoppingTokenSource?.Dispose();
 			Interlocked.Exchange<CancellationTokenSource?>(ref _stoppingTokenSource, null);
+			await _serverLock.WaitAsync();
 			try
 			{
-				await _serverLock.WaitAsync();
 				foreach (var socket in _clientSockets)
 				{
 					socket.Shutdown(SocketShutdown.Both);
@@ -66,18 +65,18 @@ public abstract class ServerBase : IServer
 	/// <inheritdoc />
 	public async Task ListenAsync()
 	{
+		if (!_serverLock.Wait(0))
+			throw new InvalidOperationException(
+				"Cannot start server, as it is already running or in the process of stopping.");
 		try
 		{
-			if (!_serverLock.Wait(0))
-				throw new InvalidOperationException(
-					"Cannot start server, as it is already running or in the process of stopping.");
 			CancellationToken token;
+			if (!_stoppingTokenLock.Wait(0))
+				throw new InvalidOperationException(
+					"Cannot start server, as it is currently stopping."
+				);
 			try
 			{
-					if (!_stoppingTokenLock.Wait(0))
-					throw new InvalidOperationException(
-						"Cannot start server, as it is currently stopping."
-					);
 				Interlocked.Exchange<CancellationTokenSource?>(ref _stoppingTokenSource, new CancellationTokenSource());
 				token = _stoppingTokenSource.Token;
 			}
