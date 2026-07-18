@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Sockets;
 using ExpressBus.Transfer.Tcp;
@@ -14,9 +15,7 @@ public abstract class ServerBase : IServer
 	private readonly IConnectionFactory _connectionFactory;
 	private readonly CancellationTokenSource _cts = new();
 	private readonly SemaphoreSlim _lock = new(1, 1);
-	private int _disposed;
-
-	private HashSet<Socket> _clientSockets = new();
+	private ConcurrentDictionary<Socket, byte> _clientSockets = new();
 	private Socket? _listeningSocket;
 
 	/// <summary>
@@ -33,8 +32,8 @@ public abstract class ServerBase : IServer
 	/// <inheritdoc />
 	public async Task ListenAsync()
 	{
-		// Pre-lock: refuse if already disposed or cancellation already requested
-		if (System.Threading.Volatile.Read(ref _disposed) != 0 || _cts.Token.IsCancellationRequested)
+		// Pre-lock: refuse if already disposed
+		if (_cts.Token.IsCancellationRequested)
 			throw new ObjectDisposedException(GetType().Name);
 
 		// Try to acquire the lock; fail immediately if another ListenAsync is running or DisposeAsync is in progress
@@ -62,23 +61,38 @@ public abstract class ServerBase : IServer
 				try
 				{
 					client = await _listeningSocket.AcceptAsync(_cts.Token).ConfigureAwait(false);
-					_clientSockets.Add(client);
-					_ = HandleConnectionAsync(_connectionFactory.CreateConnectionFromAcceptedSocket(client), _cts.Token);
+					_clientSockets.TryAdd(client, default);
+					_ = Task.Run(async () =>
+					{
+						try
+						{
+							await HandleConnectionAsync(_connectionFactory.CreateConnectionFromAcceptedSocket(client), _cts.Token).ConfigureAwait(false);
+						}
+						finally
+						{
+							client.Shutdown(SocketShutdown.Both);
+							client.Close();
+							_clientSockets.TryRemove(client, out _);
+						}
+					});
 				}
 				catch (Exception ex) when (_cts.Token.IsCancellationRequested &&
 					(ex is ObjectDisposedException || ex is SocketException))
 				{
 					break;
 				}
-				finally
-				{
-					if (client is not null)
-						_clientSockets.Remove(client);
-				}
 			}
 		}
 		finally
 		{
+			foreach (var socket in _clientSockets.Keys)
+			{
+				socket.Shutdown(SocketShutdown.Both);
+				socket.Close();
+			}
+			_clientSockets.Clear();
+
+			await CleanupOnCloseAsync().ConfigureAwait(false);
 			CloseListeningSocket();
 			_lock.Release();
 		}
@@ -87,35 +101,15 @@ public abstract class ServerBase : IServer
 	/// <inheritdoc />
 	public async ValueTask DisposeAsync()
 	{
-		// Cancel before acquiring the lock so ListenAsync can see the cancellation and back out
+		// Cancel so the main loop in ListenAsync can back out
 		_cts.Cancel();
 
-		// Wait indefinitely for ListenAsync to finish and release the lock
+		// Wait for ListenAsync to finish its finally-block cleanup and release the lock
 		await _lock.WaitAsync().ConfigureAwait(false);
 
-		try
-		{
-			// Mark as disposed within the lock
-			Interlocked.Exchange(ref _disposed, 1);
-
-			// Shut down and close all client sockets
-			foreach (var socket in _clientSockets)
-			{
-				socket.Shutdown(SocketShutdown.Both);
-				socket.Close();
-			}
-			_clientSockets.Clear();
-
-			await CleanupOnCloseAsync().ConfigureAwait(false);
-
-			CloseListeningSocket();
-		}
-		finally
-		{
-			_cts.Dispose();
-			_lock.Release();
-			_lock.Dispose();
-		}
+		_cts.Dispose();
+		_lock.Release();
+		_lock.Dispose();
 	}
 
 	protected abstract Task HandleConnectionAsync(IConnection connection, CancellationToken cancellationToken);
@@ -127,7 +121,6 @@ public abstract class ServerBase : IServer
 		var socket = _listeningSocket;
 		if (socket is not null)
 		{
-			_listeningSocket = null;
 			socket.Close();
 		}
 	}
