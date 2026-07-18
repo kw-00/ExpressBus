@@ -43,7 +43,14 @@ public sealed class BrokerServer : ServerBase
         try
         {
             var handler = new ConnectionHandling(connection, _topicTracker, _logger);
-            await handler.HandleConnectionRequestsAsync(cts.Token).ConfigureAwait(false);
+            while (!cts.Token.IsCancellationRequested)
+            {
+                await handler.HandleRequestAsync(cts.Token).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Connection closed or server shutting down — expected exit
         }
         catch (Exception ex)
         {

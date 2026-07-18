@@ -23,45 +23,27 @@ public sealed class ConnectionHandling
         _logger = logger;
     }
 
-    public async Task HandleConnectionRequestsAsync(CancellationToken cancellationToken)
+    public async Task HandleRequestAsync(CancellationToken cancellationToken)
     {
-        while (!cancellationToken.IsCancellationRequested)
-        {
-            // Read 1-byte type identifier to dispatch
-            var typeBuffer = CreateBuffer(1);
-            if (await _connection.ReceiveFullAsync(typeBuffer.Memory, cancellationToken).ConfigureAwait(false) < typeBuffer.Memory.Length) break;
-            var typeByte = typeBuffer.Memory.Span[0];
-            typeBuffer.Dispose();
+        // Read 5-byte header: 1-byte type + 4-byte message size (LE int32)
+        using var headerBuffer = CreateBuffer(5);
+        await _connection.ReceiveFullAsync(headerBuffer.Memory, cancellationToken).ConfigureAwait(false);
+        var typeByte = headerBuffer.Memory.Span[0];
+        var messageSize = BinaryPrimitives.ReadInt32LittleEndian(headerBuffer.Memory.Span.Slice(1));
 
-            // Read 4-byte message size (LE int32)
-            var sizeBuffer = CreateBuffer(4);
-            if (await _connection.ReceiveFullAsync(sizeBuffer.Memory, cancellationToken).ConfigureAwait(false) < sizeBuffer.Memory.Length) break;
-            var messageSize = BinaryPrimitives.ReadInt32LittleEndian(sizeBuffer.Memory.Span);
-            sizeBuffer.Dispose();
+        // Read full message (header + payload)
+        using var fullBuffer = CreateBuffer(messageSize);
+        headerBuffer.Memory.Span.CopyTo(fullBuffer.Memory.Span);
+        await _connection.ReceiveFullAsync(fullBuffer.Memory.Slice(5), cancellationToken).ConfigureAwait(false);
 
-            // Read remaining payload (messageSize - 5 bytes, since frame is 5 bytes)
-            var remainingSize = messageSize - 5;
-            var fullBuffer = CreateBuffer(messageSize);
-            fullBuffer.Memory.Span[0] = typeByte;
-            BinaryPrimitives.WriteInt32LittleEndian(fullBuffer.Memory.Span.Slice(1), messageSize);
-            if (await _connection.ReceiveFullAsync(fullBuffer.Memory.Slice(5), cancellationToken).ConfigureAwait(false) < remainingSize) break;
-            var requestBytes = fullBuffer.Memory;
+        using var response =
+            typeByte == BroadcastRequest.MessageTypeIdentifier ? SerializeResponse(await HandleBroadcastRequestAsync(BroadcastRequest.FromBytes(fullBuffer.Memory)).ConfigureAwait(false)) :
+            typeByte == SubscribeRequest.MessageTypeIdentifier ? SerializeResponse(HandleSubscribeRequest(SubscribeRequest.FromBytes(fullBuffer.Memory))) :
+            typeByte == UnsubscribeRequest.MessageTypeIdentifier ? SerializeResponse(HandleUnsubscribeRequest(UnsubscribeRequest.FromBytes(fullBuffer.Memory))) :
+            typeByte == UnsubscribeAllRequest.MessageTypeIdentifier ? SerializeResponse(HandleUnsubscribeAllRequest(UnsubscribeAllRequest.FromBytes(fullBuffer.Memory))) :
+            throw new FormatException($"Unknown MessageTypeIdentifier: 0x{typeByte:X2}");
 
-            DisposableMemory response;
-            if (typeByte == BroadcastRequest.MessageTypeIdentifier)
-                response = SerializeResponse(await HandleBroadcastRequestAsync(BroadcastRequest.FromBytes(requestBytes)).ConfigureAwait(false));
-            else if (typeByte == SubscribeRequest.MessageTypeIdentifier)
-                response = SerializeResponse(HandleSubscribeRequest(SubscribeRequest.FromBytes(requestBytes)));
-            else if (typeByte == UnsubscribeRequest.MessageTypeIdentifier)
-                response = SerializeResponse(HandleUnsubscribeRequest(UnsubscribeRequest.FromBytes(requestBytes)));
-            else if (typeByte == UnsubscribeAllRequest.MessageTypeIdentifier)
-                response = SerializeResponse(HandleUnsubscribeAllRequest(UnsubscribeAllRequest.FromBytes(requestBytes)));
-            else
-                throw new FormatException($"Unknown MessageTypeIdentifier: 0x{typeByte:X2}");
-
-            await _connection.SendAsync(response.Memory, cancellationToken).ConfigureAwait(false);
-            response.Dispose();
-        }
+        await _connection.SendAsync(response.Memory, cancellationToken).ConfigureAwait(false);
     }
 
     private DisposableMemory CreateBuffer(int size) => new DisposableMemory(size);
@@ -78,10 +60,8 @@ public sealed class ConnectionHandling
     private async Task<BroadcastResponse> HandleBroadcastRequestAsync(BroadcastRequest request)
     {
         var notification = new EventNotification(request.Topic, request.Message);
-        var notificationSize = notification.ByteSize;
-        var wireOwner = CreateBuffer(notificationSize);
+        using var wireOwner = CreateBuffer(notification.ByteSize);
         notification.ToBytes(wireOwner.Memory);
-        var wireMem = wireOwner.Memory.Slice(0, notificationSize);
 
         var subscribers = _topicTracker.GetSubscribers(request.Topic.Memory);
         subscribers.Remove(_connection);
@@ -90,15 +70,13 @@ public sealed class ConnectionHandling
         {
             try
             {
-                await subscriber.SendAsync(wireMem).ConfigureAwait(false);
+                await subscriber.SendAsync(wireOwner.Memory).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
                 _logger?.LogWarning(ex, "Failed to send event notification to subscriber");
             }
         }
-
-        wireOwner.Dispose();
 
         return new BroadcastResponse(Status.Success, request.RequestId);
     }

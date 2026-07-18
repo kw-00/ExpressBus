@@ -63,7 +63,7 @@ public class ConnectionHandlingTests
     }
 
     [Fact]
-    public async Task HandleConnectionRequestsAsync_BroadcastDispatched_ResponseSent()
+    public async Task HandleRequestAsync_BroadcastDispatched_ResponseSent()
     {
         // Arrange
         var requestId = Guid.NewGuid();
@@ -76,7 +76,7 @@ public class ConnectionHandlingTests
         var handler = new ConnectionHandling(connection, new TopicTracker(), null);
 
         // Act
-        await handler.HandleConnectionRequestsAsync(CancellationToken.None);
+        await handler.HandleRequestAsync(CancellationToken.None);
 
         // Assert
         Assert.Single(connection.SentData);
@@ -84,7 +84,7 @@ public class ConnectionHandlingTests
     }
 
     [Fact]
-    public async Task HandleConnectionRequestsAsync_SubscribeDispatched_ResponseSent()
+    public async Task HandleRequestAsync_SubscribeDispatched_ResponseSent()
     {
         // Arrange
         var requestId = Guid.NewGuid();
@@ -96,14 +96,14 @@ public class ConnectionHandlingTests
         var handler = new ConnectionHandling(connection, new TopicTracker(), null);
 
         // Act
-        await handler.HandleConnectionRequestsAsync(CancellationToken.None);
+        await handler.HandleRequestAsync(CancellationToken.None);
 
         // Assert
         Assert.Single(connection.SentData);
     }
 
     [Fact]
-    public async Task HandleConnectionRequestsAsync_UnsubscribeDispatched_ResponseSent()
+    public async Task HandleRequestAsync_UnsubscribeDispatched_ResponseSent()
     {
         // Arrange
         var requestId = Guid.NewGuid();
@@ -115,14 +115,14 @@ public class ConnectionHandlingTests
         var handler = new ConnectionHandling(connection, new TopicTracker(), null);
 
         // Act
-        await handler.HandleConnectionRequestsAsync(CancellationToken.None);
+        await handler.HandleRequestAsync(CancellationToken.None);
 
         // Assert
         Assert.Single(connection.SentData);
     }
 
     [Fact]
-    public async Task HandleConnectionRequestsAsync_UnsubscribeAllDispatched_ResponseSent()
+    public async Task HandleRequestAsync_UnsubscribeAllDispatched_ResponseSent()
     {
         // Arrange
         var requestId = Guid.NewGuid();
@@ -133,37 +133,37 @@ public class ConnectionHandlingTests
         var handler = new ConnectionHandling(connection, new TopicTracker(), null);
 
         // Act
-        await handler.HandleConnectionRequestsAsync(CancellationToken.None);
+        await handler.HandleRequestAsync(CancellationToken.None);
 
         // Assert
         Assert.Single(connection.SentData);
     }
 
     [Fact]
-    public async Task HandleConnectionRequestsAsync_UnknownTypeByte_ThrowsFormatException()
+    public async Task HandleRequestAsync_UnknownTypeByte_ThrowsFormatException()
     {
         // Arrange
         var connection = new FakeConnection(new byte[] { 0x63, 0x00, 0x00, 0x00, 0x00 });
         var handler = new ConnectionHandling(connection, new TopicTracker(), null);
 
         // Act & Assert
-        var ex = await Assert.ThrowsAsync<FormatException>(() => handler.HandleConnectionRequestsAsync(CancellationToken.None));
+        var ex = await Assert.ThrowsAsync<FormatException>(() => handler.HandleRequestAsync(CancellationToken.None));
         Assert.Contains("0x63", ex.Message);
     }
 
     [Fact]
-    public async Task HandleConnectionRequestsAsync_TruncatedMessageSize_HandlesGracefully()
+    public async Task HandleRequestAsync_TruncatedMessageSize_HandlesGracefully()
     {
         // Arrange
         var connection = new FakeConnection(new byte[] { 0x00, 0x01 });
         var handler = new ConnectionHandling(connection, new TopicTracker(), null);
 
         // Act & Assert
-        await handler.HandleConnectionRequestsAsync(CancellationToken.None);
+        await handler.HandleRequestAsync(CancellationToken.None);
     }
 
     [Fact]
-    public async Task HandleConnectionRequestsAsync_TruncatedPayload_HandlesGracefully()
+    public async Task HandleRequestAsync_TruncatedPayload_HandlesGracefully()
     {
         // Arrange
         var requestId = Guid.NewGuid();
@@ -183,6 +183,6 @@ public class ConnectionHandlingTests
         var handler = new ConnectionHandling(connection, new TopicTracker(), null);
 
         // Act & Assert
-        await handler.HandleConnectionRequestsAsync(CancellationToken.None);
+        await handler.HandleRequestAsync(CancellationToken.None);
     }
 }
