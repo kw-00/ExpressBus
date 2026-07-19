@@ -1,10 +1,11 @@
-namespace ExpressBus.Protocol.Sourcegen.Generation;
+namespace ExpressBus.Protocol.Sourcegen.SerializationGeneration;
 
 using System;
 using System.Collections.Generic;
 using System.Text;
+using ExpressBus.Protocol.Sourcegen.SharedDependencies;
 
-public static class SerializationGeneration
+internal static class SerializationGeneration
 {
     private static readonly string[] _lineSeparators = { "\r\n", "\r", "\n" };
 
@@ -23,7 +24,7 @@ public static class SerializationGeneration
     public static string Generate(string className, IReadOnlyList<SerializablePropData> propData)
     {
         var sb = new StringBuilder();
-        sb.AppendLine($"public partial class {className}");
+        sb.AppendLine($"public partial class {className} : ISerializable<{className}>");
         sb.AppendLine("{");
 
         // Properties
@@ -52,3 +53,4 @@ public static class SerializationGeneration
         return sb.ToString();
     }
 }
+

@@ -4,9 +4,9 @@ using System.Linq;
 using System.Text;
 using ExpressBus.Protocol.Sourcegen.SharedDependencies;
 
-namespace ExpressBus.Protocol.Sourcegen.Generation;
+namespace ExpressBus.Protocol.Sourcegen.SerializationGeneration;
 
-public static class FromBytesGeneration
+internal static class FromBytesGeneration
 {
     public static string Generate(string className, IReadOnlyList<SerializablePropData> props)
     {

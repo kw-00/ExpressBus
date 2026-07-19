@@ -1,10 +1,11 @@
+using System;
 using ExpressBus.Protocol.Sourcegen.SharedDependencies;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace ExpressBus.Protocol.Sourcegen.Generation;
+namespace ExpressBus.Protocol.Sourcegen.SerializationGeneration;
 
-public static class ByteCountGeneration
+internal static class ByteCountGeneration
 {
     public static string Generate(IEnumerable<SerializablePropData> props)
     {
@@ -13,7 +14,8 @@ public static class ByteCountGeneration
             SerializablePropType.Byte => "1",
             SerializablePropType.Int => "4",
             SerializablePropType.Guid => "16",
-            SerializablePropType.ByteMemory => $"4 + {prop.Name}.Length"
+            SerializablePropType.ByteMemory => $"4 + {prop.Name}.Length",
+            _ => throw new ArgumentOutOfRangeException(nameof(prop.Type), prop.Type, $"Unsupported serializable property type: {prop.Type}")
         }).ToList();
 
         if (parts.Count == 0)

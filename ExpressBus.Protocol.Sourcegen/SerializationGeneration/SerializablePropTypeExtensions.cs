@@ -1,8 +1,9 @@
-namespace ExpressBus.Protocol.Sourcegen.Generation;
+namespace ExpressBus.Protocol.Sourcegen.SerializationGeneration;
 
+using System;
 using ExpressBus.Protocol.Sourcegen.SharedDependencies;
 
-public static class SerializablePropTypeExtensions
+internal static class SerializablePropTypeExtensions
 {
     public static string GetClrType(this SerializablePropType type)
     {
@@ -11,7 +12,8 @@ public static class SerializablePropTypeExtensions
             SerializablePropType.Byte => "byte",
             SerializablePropType.Int => "int",
             SerializablePropType.Guid => "Guid",
-            SerializablePropType.ByteMemory => "ReadOnlyMemory<byte>"
+            SerializablePropType.ByteMemory => "ReadOnlyMemory<byte>",
+            _ => throw new ArgumentOutOfRangeException(nameof(type), $"Unsupported serializable property type: {type}")
         };
     }
 }

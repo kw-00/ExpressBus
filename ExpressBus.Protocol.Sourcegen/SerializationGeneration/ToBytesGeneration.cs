@@ -1,11 +1,11 @@
-namespace ExpressBus.Protocol.Sourcegen.Generation;
+namespace ExpressBus.Protocol.Sourcegen.SerializationGeneration;
 
 using System;
 using System.Collections.Generic;
 using System.Text;
 using ExpressBus.Protocol.Sourcegen.SharedDependencies;
 
-public static class ToBytesGeneration
+internal static class ToBytesGeneration
 {
     public static string Generate(string className, IReadOnlyList<SerializablePropData> props)
     {

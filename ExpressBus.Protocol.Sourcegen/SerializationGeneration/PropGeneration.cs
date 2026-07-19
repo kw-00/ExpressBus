@@ -1,9 +1,9 @@
-namespace ExpressBus.Protocol.Sourcegen.Generation;
+namespace ExpressBus.Protocol.Sourcegen.SerializationGeneration;
 
 using System;
 using ExpressBus.Protocol.Sourcegen.SharedDependencies;
 
-public static class PropGeneration
+internal static class PropGeneration
 {
     public static string Generate(SerializablePropData propData)
     {

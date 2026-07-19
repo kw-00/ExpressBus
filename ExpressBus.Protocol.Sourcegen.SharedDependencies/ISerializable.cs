@@ -1,6 +1,6 @@
 using System;
 
-namespace ExpressBus.Protocol;
+namespace ExpressBus.Protocol.Sourcegen.SharedDependencies;
 
 public interface ISerializable<T> where T : ISerializable<T>
 {
