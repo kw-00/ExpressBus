@@ -1,9 +1,10 @@
-namespace ExpressBus.Protocol.Sourcegen.Generation;
-
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using ExpressBus.Protocol.Sourcegen.SharedDependencies;
+
+namespace ExpressBus.Protocol.Sourcegen.Generation;
 
 public static class FromBytesGeneration
 {
@@ -13,18 +14,12 @@ public static class FromBytesGeneration
         sb.AppendLine($"public static {className} FromBytes(Span<byte> buffer)");
         sb.AppendLine("{");
         sb.AppendLine($"    var reader = new ByteReader(buffer);");
-        sb.Append($"    return new {className}(");
-        
-        for (int i = 0; i < props.Count; i++)
-        {
-            sb.Append(RWCallGeneration.GenerateReadCall("reader", props[i].Type));
-            if (i < props.Count - 1)
-            {
-                sb.Append(", ");
-            }
-        }
-        
-        sb.AppendLine(");");
+
+        var calls = props.Select(p => RWCallGeneration.GenerateReadCall("reader", p.Type));
+        string joinedCalls = string.Join(",\n    ", calls);
+        sb.AppendLine($"    return new {className}(\n    {joinedCalls});");
+
+
         sb.AppendLine("}");
         return sb.ToString();
     }

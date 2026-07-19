@@ -10,10 +10,10 @@ public class SerializablePropData
 
     public SerializablePropData(AttributeData attributeData)
     {
-        if (attributeData.AttributeClass?.Name != "GenerateSerializedFieldAttribute" ||
+        if (attributeData.AttributeClass?.Name != "GenerateSerializedPropAttribute" ||
             attributeData.AttributeClass?.ContainingNamespace.ToDisplayString() != "ExpressBus.Protocol.Sourcegen.SharedDependencies")
         {
-            throw new System.ArgumentException("Attribute must be GenerateSerializedFieldAttribute from SharedDependencies namespace.");
+            throw new System.ArgumentException("Attribute must be GenerateSerializedPropAttribute from SharedDependencies namespace.");
         }
 
         if (attributeData.ConstructorArguments.Length < 2)
