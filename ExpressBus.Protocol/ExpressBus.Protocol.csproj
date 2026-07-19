@@ -6,4 +6,11 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\ExpressBus.Protocol.Sourcegen.SharedDependencies\ExpressBus.Protocol.Sourcegen.SharedDependencies.csproj" />
+    <ProjectReference Include="..\ExpressBus.Protocol.Sourcegen\ExpressBus.Protocol.Sourcegen.csproj" 
+                      OutputItemType="Analyzer" 
+                      ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
 </Project>

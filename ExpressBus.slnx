@@ -1,2 +1,5 @@
 <Solution>
+  <Project Path="ExpressBus.Protocol.Sourcegen.SharedDependencies/ExpressBus.Protocol.Sourcegen.SharedDependencies.csproj" />
+  <Project Path="ExpressBus.Protocol.Sourcegen/ExpressBus.Protocol.Sourcegen.csproj" />
+  <Project Path="ExpressBus.Protocol/ExpressBus.Protocol.csproj" />
 </Solution>
