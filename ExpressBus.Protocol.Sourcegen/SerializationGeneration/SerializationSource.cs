@@ -32,7 +32,7 @@ public class SerializationSource
         string className = type.Name;
 
         string ns = type.ContainingNamespace.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-        string partialDeclaration = DeclarationGeneration.GeneratePartial(target);
+        string partialDeclaration = DeclarationGeneration.GeneratePartial(target, new[] { $"ExpressBus.Protocol.Sourcegen.SharedDependencies.ISerializable<{className}>" });
         string members = GenerateMembers(className, propData);
         string indentedMembers = Indent(members);
 
