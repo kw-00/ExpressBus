@@ -2,6 +2,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace ExpressBus.Protocol.Sourcegen;
@@ -17,6 +18,11 @@ public static class DeclarationGeneration
     /// <exception cref="ArgumentException">Thrown if the declaration is not marked as partial.</exception>
     public static string GeneratePartial(TypeDeclarationSyntax originalDeclaration)
     {
+        return GeneratePartial(originalDeclaration, Array.Empty<string>());
+    }
+
+    public static string GeneratePartial(TypeDeclarationSyntax originalDeclaration, IReadOnlyList<string> baseTypes)
+    {
         if (!originalDeclaration.Modifiers.Any(m => m.IsKind(SyntaxKind.PartialKeyword)))
         {
             throw new ArgumentException("The declaration must be partial.", nameof(originalDeclaration));
@@ -27,11 +33,15 @@ public static class DeclarationGeneration
         var typeParameterList = originalDeclaration.TypeParameterList?.ToString() ?? string.Empty;
         var constraintClauses = originalDeclaration.ConstraintClauses.ToString().Trim();
 
+        var baseTypesString = (baseTypes != null && baseTypes.Count > 0)
+            ? $" : {string.Join(", ", baseTypes)}"
+            : string.Empty;
+
         var kind = originalDeclaration.Kind().ToString()
             .Replace("Declaration", "")
             .ToLowerInvariant();
 
-        var result = $"{modifiers} {kind} {identifier}{typeParameterList}";
+        var result = $"{modifiers} {kind} {identifier}{typeParameterList}{baseTypesString}";
 
         if (!string.IsNullOrEmpty(constraintClauses))
         {

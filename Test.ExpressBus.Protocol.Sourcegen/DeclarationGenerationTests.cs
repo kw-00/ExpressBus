@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -23,6 +24,22 @@ public class DeclarationGenerationTests
 
         // Assert
         Assert.Equal("partial class MyClass", result);
+    }
+
+    [Fact]
+    public void GeneratePartial_SimpleClassWithBaseTypes_ReturnsNormalizedDeclaration()
+    {
+        // Arrange
+        var code = "partial class MyClass { }";
+        var tree = CSharpSyntaxTree.ParseText(code);
+        var node = tree.GetCompilationUnitRoot().DescendantNodes().OfType<TypeDeclarationSyntax>().First();
+        var baseTypes = new List<string> { "BaseA", "Ns.BaseB" };
+
+        // Act
+        var result = DeclarationGeneration.GeneratePartial(node, baseTypes);
+
+        // Assert
+        Assert.Equal("partial class MyClass : BaseA, Ns.BaseB", result);
     }
 
     [Fact]
