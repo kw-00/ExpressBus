@@ -2,7 +2,7 @@ namespace ExpressBus.Protocol.Sourcegen.SerializationGeneration;
 
 using ExpressBus.Protocol.Sourcegen.SharedDependencies;
 
-internal static class RWCallGeneration
+public static class RWCallGeneration
 {
     public static string GenerateReadCall(string readerName, SerializablePropType propType)
     {

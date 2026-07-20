@@ -6,7 +6,7 @@ using ExpressBus.Protocol.Sourcegen.SharedDependencies;
 
 namespace ExpressBus.Protocol.Sourcegen.SerializationGeneration;
 
-internal static class FromBytesGeneration
+public static class FromBytesGeneration
 {
     public static string Generate(string className, IReadOnlyList<SerializablePropData> props)
     {

@@ -5,7 +5,7 @@ using System.Collections.Generic;
 using System.Text;
 using ExpressBus.Protocol.Sourcegen.SharedDependencies;
 
-internal static class ConstructorGeneration
+public static class ConstructorGeneration
 {
     public static string Generate(string className, IReadOnlyList<SerializablePropData> propData)
     {

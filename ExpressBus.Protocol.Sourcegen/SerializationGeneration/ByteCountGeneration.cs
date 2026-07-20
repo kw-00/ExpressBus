@@ -5,7 +5,7 @@ using System.Linq;
 
 namespace ExpressBus.Protocol.Sourcegen.SerializationGeneration;
 
-internal static class ByteCountGeneration
+public static class ByteCountGeneration
 {
     public static string Generate(IEnumerable<SerializablePropData> props)
     {

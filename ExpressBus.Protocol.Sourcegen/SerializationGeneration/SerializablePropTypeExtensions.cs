@@ -3,7 +3,7 @@ namespace ExpressBus.Protocol.Sourcegen.SerializationGeneration;
 using System;
 using ExpressBus.Protocol.Sourcegen.SharedDependencies;
 
-internal static class SerializablePropTypeExtensions
+public static class SerializablePropTypeExtensions
 {
     public static string GetClrType(this SerializablePropType type)
     {

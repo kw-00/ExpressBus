@@ -3,7 +3,7 @@ namespace ExpressBus.Protocol.Sourcegen.SerializationGeneration;
 using Microsoft.CodeAnalysis;
 using ExpressBus.Protocol.Sourcegen.SharedDependencies;
 
-internal class SerializablePropData
+public class SerializablePropData
 {
     public string Name { get; }
     public SerializablePropType Type { get; }

@@ -5,7 +5,8 @@ using System.Collections.Generic;
 using System.Text;
 using ExpressBus.Protocol.Sourcegen.SharedDependencies;
 
-internal static class SerializationGeneration
+// TODO: make this class generate source code and rename it accordingly
+public static class SerializationGeneration
 {
     private static readonly string[] _lineSeparators = { "\r\n", "\r", "\n" };
 
