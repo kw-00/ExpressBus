@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using ExpressBus.Protocol.Sourcegen;
 using ExpressBus.Protocol.Sourcegen.SharedDependencies;
 
 namespace ExpressBus.Protocol.Sourcegen.SerializationGeneration;
@@ -14,25 +15,23 @@ public class SerializationSource
 {
 
     private readonly SourceProductionContext _context;
-    private readonly SemanticModel _semanticModel;
 
     private static readonly string[] _lineSeparators = { "\r\n", "\r", "\n" };
 
-    public SerializationSource(SourceProductionContext context, SemanticModel semanticModel)
+    public SerializationSource(SourceProductionContext context)
     {
         _context = context;
-        _semanticModel = semanticModel;
     }
 
-    public void AddSource(TypeDeclarationSyntax target, IReadOnlyList<SerializablePropData> propData)
+    public void AddSource(NamedTypeMetadata target, IReadOnlyList<SerializablePropData> propData)
     {
-        var type = _semanticModel.GetDeclaredSymbol(target) as INamedTypeSymbol
-            ?? throw new InvalidOperationException("Could not find declared symbol for subject.");
+        var type = target.Symbol;
+        var syntax = target.Syntax;
 
         string className = type.Name;
 
-        string ns = type.ContainingNamespace.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-        string partialDeclaration = DeclarationGeneration.GeneratePartial(target, new[] { $"ExpressBus.Protocol.Sourcegen.SharedDependencies.ISerializable<{className}>" });
+        string ns = TypeNameResolution.GetFullyQualifiedName(type.ContainingNamespace);
+        string partialDeclaration = DeclarationGeneration.GeneratePartial(syntax, new[] { $"ExpressBus.Protocol.Sourcegen.SharedDependencies.ISerializable<{className}>" });
         string members = GenerateMembers(className, propData);
         string indentedMembers = Indent(members);
 

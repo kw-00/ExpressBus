@@ -1,4 +1,5 @@
 using System;
+using System.Buffers.Binary;
 using System.IO;
 using System.Threading.Tasks;
 
@@ -20,35 +21,35 @@ public class FramableStreamer : IDisposable
 
     public async Task<FrameAndMessage> ReadAsync()
     {
-        byte[] header = new byte[5];
-        await _stream.ReadExactlyAsync(header);
+        var header = new DisposableMemory<byte>(5);
+        await _stream.ReadExactlyAsync(header.Memory);
 
-        byte typeId = header[0];
-        int byteCount = BitConverter.ToInt32(header, 1);
+        byte typeId = header.Memory.Span[0];
+        int byteCount = BinaryPrimitives.ReadInt32LittleEndian(header.Memory.Span[1..]);
 
-        var disposable = new DisposableMemory<byte>(byteCount);
+        var message = new DisposableMemory<byte>(byteCount);
         try
         {
-            await _stream.ReadExactlyAsync(disposable.Memory);
-            return new FrameAndMessage(new Frame(typeId, byteCount), disposable.Memory);
+            await _stream.ReadExactlyAsync(message.Memory);
+            return new FrameAndMessage(new Frame(typeId, byteCount), message.Memory);
         }
         catch
         {
-            disposable.Dispose();
+            message.Dispose();
             throw;
         }
     }
 
     public async Task WriteAsync<T>(T framable) where T : IFramable<T>
     {
-        using var disposable = new DisposableMemory<byte>(5 + framable.ByteCount);
-        var span = disposable.Memory.Span;
+        using var buffer = new DisposableMemory<byte>(5 + framable.ByteCount);
+        var span = buffer.Memory.Span;
 
         span[0] = T.TypeId;
-        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(span.Slice(1), framable.ByteCount);
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(span[1..], framable.ByteCount);
 
-        framable.ToBytes(span.Slice(5));
+        framable.ToBytes(span[5..]);
 
-        await _stream.WriteAsync(disposable.Memory);
+        await _stream.WriteAsync(buffer.Memory);
     }
 }
