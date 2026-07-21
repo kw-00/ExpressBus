@@ -16,16 +16,16 @@ namespace ExpressBus.Protocol.Sourcegen.TargetDependencyGeneration
             const string source = """
                 using System;
 
-                namespace ExpressBus.Protocol.Sourcegen.SharedDependencies;
+                namespace ExpressBus.Protocol.Sourcegen.TargetDependencies;
 
                 public interface ISerializable<T> where T : ISerializable<T>
                 {
                     int ByteCount { get; }
                     void ToBytes(Span<byte> buffer);
-                    static abstract T FromBytes(Span<byte> buffer);
+                     static abstract T FromBytes(ReadOnlyMemory<byte> buffer);
                 }
                 """;
-            _context.AddSource("ExpressBus.Protocol.Sourcegen.SharedDependencies.ISerializable.g.cs", source);
+            _context.AddSource("ExpressBus.Protocol.Sourcegen.TargetDependencies.ISerializable.g.cs", source);
         }
     }
 }

@@ -17,50 +17,50 @@ namespace ExpressBus.Protocol.Sourcegen.TargetDependencyGeneration
                 using System;
                 using System.Buffers.Binary;
 
-                namespace ExpressBus.Protocol.Sourcegen.SharedDependencies;
+                namespace ExpressBus.Protocol.Sourcegen.TargetDependencies;
 
-                public ref struct ByteReader
+                public struct ByteReader
                 {
-                    private ReadOnlySpan<byte> _span;
+                    private ReadOnlyMemory<byte> _memory;
                     private int _position;
 
-                    public ByteReader(ReadOnlySpan<byte> span)
+                    public ByteReader(ReadOnlyMemory<byte> memory)
                     {
-                        _span = span;
+                        _memory = memory;
                         _position = 0;
                     }
 
                     public byte ReadByte()
                     {
-                        byte value = _span[_position];
+                        byte value = _memory.Span[_position];
                         _position++;
                         return value;
                     }
 
                     public int ReadInt()
                     {
-                        int value = BinaryPrimitives.ReadInt32LittleEndian(_span.Slice(_position, 4));
+                        int value = BinaryPrimitives.ReadInt32LittleEndian(_memory.Span.Slice(_position, 4));
                         _position += 4;
                         return value;
                     }
 
                     public Guid ReadGuid()
                     {
-                        Guid value = new Guid(_span.Slice(_position, 16));
+                        Guid value = new Guid(_memory.Span.Slice(_position, 16));
                         _position += 16;
                         return value;
                     }
 
-                    public ReadOnlySpan<byte> ReadByteMemory()
+                    public ReadOnlyMemory<byte> ReadByteMemory()
                     {
                         int size = ReadInt();
-                        var slice = _span.Slice(_position, size);
+                        var slice = _memory.Slice(_position, size);
                         _position += size;
                         return slice;
                     }
                 }
                 """;
-            _context.AddSource("ExpressBus.Protocol.Sourcegen.SharedDependencies.ByteReader.g.cs", source);
+            _context.AddSource("ExpressBus.Protocol.Sourcegen.TargetDependencies.ByteReader.g.cs", source);
         }
     }
 }

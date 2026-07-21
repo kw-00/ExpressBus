@@ -1,4 +1,4 @@
-using ExpressBus.Protocol.Sourcegen.SharedDependencies;
+using ExpressBus.Protocol.Sourcegen.TargetDependencies;
 
 namespace ExpressBus.Protocol;
 

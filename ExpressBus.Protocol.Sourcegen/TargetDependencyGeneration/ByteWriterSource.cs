@@ -17,7 +17,7 @@ public class ByteWriterSource
             using System;
             using System.Buffers.Binary;
 
-            namespace ExpressBus.Protocol.Sourcegen.SharedDependencies;
+            namespace ExpressBus.Protocol.Sourcegen.TargetDependencies;
 
             public ref struct ByteWriter
             {
@@ -48,14 +48,14 @@ public class ByteWriterSource
                     _position += 16;
                 }
 
-                public void WriteByteMemory(ReadOnlySpan<byte> data)
+                public void WriteByteMemory(ReadOnlyMemory<byte> data)
                 {
                     WriteInt(data.Length);
-                    data.CopyTo(_span.Slice(_position, data.Length));
+                    data.Span.CopyTo(_span.Slice(_position, data.Length));
                     _position += data.Length;
                 }
             }
             """;
-        _context.AddSource("ExpressBus.Protocol.Sourcegen.SharedDependencies.ByteWriter.g.cs", source);
+        _context.AddSource("ExpressBus.Protocol.Sourcegen.TargetDependencies.ByteWriter.g.cs", source);
     }
 }

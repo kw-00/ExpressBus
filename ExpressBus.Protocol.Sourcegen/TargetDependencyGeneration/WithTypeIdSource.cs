@@ -14,14 +14,14 @@ namespace ExpressBus.Protocol.Sourcegen.TargetDependencyGeneration
         public void AddSource()
         {
             const string source = """
-                namespace ExpressBus.Protocol.Sourcegen.SharedDependencies;
+                namespace ExpressBus.Protocol.Sourcegen.TargetDependencies;
 
                 public interface IWithTypeId
                 {
                     static abstract byte TypeId { get; }
                 }
                 """;
-            _context.AddSource("ExpressBus.Protocol.Sourcegen.SharedDependencies.IWithTypeId.g.cs", source);
+            _context.AddSource("ExpressBus.Protocol.Sourcegen.TargetDependencies.IWithTypeId.g.cs", source);
         }
     }
 }

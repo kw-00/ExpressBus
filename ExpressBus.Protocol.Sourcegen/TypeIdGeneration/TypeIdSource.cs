@@ -20,7 +20,7 @@ public class TypeIdSource
         var type = target.Symbol;
         var syntax = target.Syntax;
         string ns = TypeNameResolution.GetNamespaceName(type.ContainingNamespace);
-        string partialDeclaration = DeclarationGeneration.GeneratePartial(syntax, new[] { "ExpressBus.Protocol.Sourcegen.SharedDependencies.IWithTypeId" });
+        string partialDeclaration = DeclarationGeneration.GeneratePartial(syntax, new[] { "ExpressBus.Protocol.Sourcegen.TargetDependencies.IWithTypeId" });
         string typeId = GenerateTypeId();
 
         string content = $$"""
