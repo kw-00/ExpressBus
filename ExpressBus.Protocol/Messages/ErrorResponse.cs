@@ -7,6 +7,6 @@ namespace ExpressBus.Protocol.Messages;
 [GenerateSerialization]
 [GenerateSerializedProp("RequestId", SerializablePropType.Guid)]
 [GenerateSerializedProp("ErrorCode", SerializablePropType.Int)]
-public readonly ref struct ErrorResponse
+public readonly partial struct ErrorResponse
 {
 }

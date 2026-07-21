@@ -15,7 +15,7 @@ public static class ToBytesGeneration
         sb.AppendLine($"    var writer = new ByteWriter(buffer);");
         foreach (var prop in props)
         {
-            sb.AppendLine($"    {RWCallGeneration.GenerateWriteCall("writer", prop)}");
+            sb.AppendLine($"    {RWCallGeneration.GenerateWriteCall("writer", prop)};");
         }
         sb.AppendLine("}");
         return sb.ToString();

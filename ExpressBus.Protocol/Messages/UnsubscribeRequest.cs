@@ -7,6 +7,6 @@ namespace ExpressBus.Protocol.Messages;
 [GenerateSerialization]
 [GenerateSerializedProp("RequestId", SerializablePropType.Guid)]
 [GenerateSerializedProp("Topic", SerializablePropType.ByteMemory)]
-public readonly ref struct UnsubscribeRequest
+public readonly partial struct UnsubscribeRequest
 {
 }

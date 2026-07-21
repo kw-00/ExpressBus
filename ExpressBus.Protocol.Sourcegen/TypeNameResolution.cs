@@ -5,6 +5,11 @@ namespace ExpressBus.Protocol.Sourcegen
 {
     public static class TypeNameResolution
     {
+        public static string GetNamespaceName(INamespaceSymbol symbol)
+        {
+            return symbol.ToDisplayString();
+        }
+
         public static string GetFullyQualifiedName(INamedTypeSymbol symbol)
         {
             return symbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);

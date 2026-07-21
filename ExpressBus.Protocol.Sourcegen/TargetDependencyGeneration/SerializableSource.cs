@@ -4,9 +4,9 @@ namespace ExpressBus.Protocol.Sourcegen.TargetDependencyGeneration
 {
     public class SerializableSource
     {
-        private readonly SourceProductionContext _context;
+        private readonly IncrementalGeneratorPostInitializationContext _context;
 
-        public SerializableSource(SourceProductionContext context)
+        public SerializableSource(IncrementalGeneratorPostInitializationContext context)
         {
             _context = context;
         }

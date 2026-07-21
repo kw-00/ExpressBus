@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ExpressBus.Protocol.Sourcegen.SharedDependencies\ExpressBus.Protocol.Sourcegen.SharedDependencies.csproj" />
+    <ProjectReference Include="..\ExpressBus.Protocol.Sourcegen.SharedDependencies\ExpressBus.Protocol.Sourcegen.SharedDependencies.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
     <ProjectReference Include="..\ExpressBus.Protocol.Sourcegen\ExpressBus.Protocol.Sourcegen.csproj" 
                       OutputItemType="Analyzer" 
                       ReferenceOutputAssembly="false" />

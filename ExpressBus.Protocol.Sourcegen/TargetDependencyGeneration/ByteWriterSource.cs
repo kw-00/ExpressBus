@@ -4,9 +4,9 @@ namespace ExpressBus.Protocol.Sourcegen.TargetDependencyGeneration;
 
 public class ByteWriterSource
 {
-    private readonly SourceProductionContext _context;
+    private readonly IncrementalGeneratorPostInitializationContext _context;
 
-    public ByteWriterSource(SourceProductionContext context)
+    public ByteWriterSource(IncrementalGeneratorPostInitializationContext context)
     {
         _context = context;
     }

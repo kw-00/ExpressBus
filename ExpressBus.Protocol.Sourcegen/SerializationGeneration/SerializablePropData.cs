@@ -24,11 +24,22 @@ public class SerializablePropData
         Name = attributeData.ConstructorArguments[0].Value?.ToString()
             ?? throw new System.ArgumentException("Attribute argument 'name' is missing.");
 
-        if (attributeData.ConstructorArguments[1].Value is not SerializablePropType type)
+        var value = attributeData.ConstructorArguments[1].Value;
+        if (value is SerializablePropType type)
         {
-            throw new System.ArgumentException("Attribute argument 'type' is not of type SerializablePropType.");
+            Type = type;
         }
-
-        Type = type;
+        else if (value is int intValue)
+        {
+            Type = (SerializablePropType)intValue;
+        }
+        else if (value is long longValue)
+        {
+            Type = (SerializablePropType)longValue;
+        }
+        else
+        {
+            throw new System.ArgumentException($"Attribute argument 'type' is not of type SerializablePropType. Found: {value?.GetType().Name ?? "null"}");
+        }
     }
 }

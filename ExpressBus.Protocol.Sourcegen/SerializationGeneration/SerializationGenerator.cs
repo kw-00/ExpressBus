@@ -19,7 +19,7 @@ public class SerializationGenerator : IIncrementalGenerator
 
         var candidates =
             context.SyntaxProvider.ForAttributeWithMetadataName(
-                attributeType.FullName!,
+                attributeType.FullName,
                 static (node, _) =>
                     node is TypeDeclarationSyntax t && t.Modifiers.Any(m => m.IsKind(SyntaxKind.PartialKeyword)),
                 static (ctx, _) =>
@@ -43,17 +43,14 @@ public class SerializationGenerator : IIncrementalGenerator
                 foreach (var type in ctx)
                 {
                     var propDataList = new List<SerializablePropData>();
-                    foreach (var member in type.Symbol.GetMembers().OfType<IPropertySymbol>())
+                    var attributes = type.Symbol.GetAttributes().Where(a =>
+                        a.AttributeClass?.Name == "GenerateSerializedPropAttribute" &&
+                        a.AttributeClass?.ContainingNamespace.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) 
+                            == "global::ExpressBus.Protocol.Sourcegen.SharedDependencies");
+ 
+                    foreach (var attribute in attributes)
                     {
-                        var attribute = member.GetAttributes().FirstOrDefault(a =>
-                            a.AttributeClass?.Name == "GenerateSerializedPropAttribute" &&
-                            a.AttributeClass?.ContainingNamespace.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) 
-                                == "global::ExpressBus.Protocol.Sourcegen.SharedDependencies");
-
-                        if (attribute != null)
-                        {
-                            propDataList.Add(new SerializablePropData(attribute));
-                        }
+                        propDataList.Add(new SerializablePropData(attribute));
                     }
 
                     source.AddSource(type, propDataList);

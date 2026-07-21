@@ -4,9 +4,9 @@ namespace ExpressBus.Protocol.Sourcegen.TargetDependencyGeneration
 {
     public class WithTypeIdSource
     {
-        private readonly SourceProductionContext _context;
+        private readonly IncrementalGeneratorPostInitializationContext _context;
 
-        public WithTypeIdSource(SourceProductionContext context)
+        public WithTypeIdSource(IncrementalGeneratorPostInitializationContext context)
         {
             _context = context;
         }

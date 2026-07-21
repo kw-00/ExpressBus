@@ -8,6 +8,6 @@ namespace ExpressBus.Protocol.Messages;
 [GenerateSerializedProp("RequestId", SerializablePropType.Guid)]
 [GenerateSerializedProp("Topic", SerializablePropType.ByteMemory)]
 [GenerateSerializedProp("Message", SerializablePropType.ByteMemory)]
-public readonly ref struct BroadcastRequest
+public readonly partial struct BroadcastRequest
 {
 }

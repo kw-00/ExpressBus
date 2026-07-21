@@ -17,7 +17,7 @@ public class TypeIdGenerator : IIncrementalGenerator
 
         var candidates =
             context.SyntaxProvider.ForAttributeWithMetadataName(
-                attributeType.FullName!,
+                attributeType.FullName,
                 static (node, _) =>
                     node is TypeDeclarationSyntax t && t.Modifiers.Any(m => m.IsKind(SyntaxKind.PartialKeyword)),
                 static (ctx, _) =>
@@ -34,13 +34,13 @@ public class TypeIdGenerator : IIncrementalGenerator
 
         context.RegisterImplementationSourceOutput(
             deduplicatedCandidates,
-            static (generator, ctx) =>
+            static (ctx, candidates) =>
             {
-                var source = new TypeIdSource(generator, 0);
+                var source = new TypeIdSource(ctx, 0);
 
-                foreach (var type in ctx)
+                foreach (var type in candidates)
                     source.AddSource(type);
-            });   
+            });
     }
 
 }

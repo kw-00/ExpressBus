@@ -19,7 +19,7 @@ public class TypeIdSource
     {
         var type = target.Symbol;
         var syntax = target.Syntax;
-        string ns = TypeNameResolution.GetFullyQualifiedName(type.ContainingNamespace);
+        string ns = TypeNameResolution.GetNamespaceName(type.ContainingNamespace);
         string partialDeclaration = DeclarationGeneration.GeneratePartial(syntax, new[] { "ExpressBus.Protocol.Sourcegen.SharedDependencies.IWithTypeId" });
         string typeId = GenerateTypeId();
 

@@ -6,6 +6,6 @@ namespace ExpressBus.Protocol.Messages;
 [GenerateTypeId]
 [GenerateSerialization]
 [GenerateSerializedProp("RequestId", SerializablePropType.Guid)]
-public readonly ref struct SubscribedResponse
+public readonly partial struct SubscribedResponse
 {
 }
