@@ -10,7 +10,6 @@ using ExpressBus.Protocol.Sourcegen.SharedDependencies;
 
 namespace ExpressBus.Protocol.Sourcegen.SerializationGeneration;
 
-// TODO: make this class generate source code and rename it accordingly
 public class SerializationSource
 {
 
